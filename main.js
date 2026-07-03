@@ -220,11 +220,11 @@
 
         // --- 按钮组件 ---
         startManualBtn = document.createElement('button');
-        startManualBtn.innerText = '▶️ 半自动守株待兔';
+        startManualBtn.innerText = '▶️ 半自动';
         styleButton(startManualBtn, '#1d9bf0');
 
         startAutoBtn = document.createElement('button');
-        startAutoBtn.innerText = '🚀 开启全自动清理';
+        startAutoBtn.innerText = '🚀 全自动';
         styleButton(startAutoBtn, '#00ba7c');
 
         stopBtn = document.createElement('button');
