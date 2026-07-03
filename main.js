@@ -2,7 +2,6 @@
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
 // @version      1.3
-// @description  删除自动滚动，全靠用户手动下拉刷新。增加去重记忆，防止虚拟列表漏人。
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
