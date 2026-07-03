@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (日志全功能版)
+// @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      2.0
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -29,7 +29,65 @@
     let delayValLabel, speedValLabel, limitInput, logBox;
     let noActionCount = 0;
 
+    // 插入悬浮提示所需的全局 CSS 样式
+    function injectStyles() {
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .x-helper-tooltip {
+                position: relative;
+                display: inline-block;
+                cursor: help;
+                margin-left: 4px;
+                color: #888;
+                font-size: 11px;
+                user-select: none;
+            }
+            .x-helper-tooltip::after {
+                content: attr(data-tip);
+                position: absolute;
+                bottom: 125%;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: rgba(20, 20, 20, 0.95);
+                color: #fff;
+                padding: 6px 10px;
+                border-radius: 6px;
+                font-size: 11px;
+                line-height: 1.4;
+                white-space: normal;
+                width: 160px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+                border: 1px solid #444;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+                z-index: 10000;
+                font-family: sans-serif;
+            }
+            .x-helper-tooltip:hover::after {
+                opacity: 1;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // 创建带提示的标签组合
+    function createLabelWithTooltip(labelText, tooltipText) {
+        const container = document.createElement('span');
+        container.innerText = labelText;
+
+        const qMark = document.createElement('span');
+        qMark.className = 'x-helper-tooltip';
+        qMark.setAttribute('data-tip', tooltipText);
+        qMark.innerText = '❓';
+
+        container.appendChild(qMark);
+        return container;
+    }
+
     function createUI() {
+        injectStyles();
+
         const container = document.createElement('div');
         container.style.position = 'fixed';
         container.style.top = '70px';
@@ -52,14 +110,20 @@
         delayGroup.style.display = 'flex';
         delayGroup.style.flexDirection = 'column';
         delayGroup.style.gap = '4px';
+
         const delayLabelContainer = document.createElement('div');
         delayLabelContainer.style.display = 'flex';
         delayLabelContainer.style.justifyContent = 'space-between';
-        delayLabelContainer.innerHTML = '<span>⏳ 取关间隔上限:</span>';
+
+        // 🌟 注入问号提示
+        const delayLabel = createLabelWithTooltip('⏳ 取关间隔上限', '单次取关后的安全等待时间最大值。拉低可极大提升速度，但容易触发人机验证。');
+        delayLabelContainer.appendChild(delayLabel);
+
         delayValLabel = document.createElement('span');
         delayValLabel.innerText = `${CONFIG.maxDelay / 1000}秒`;
         delayValLabel.style.color = '#1d9bf0';
         delayLabelContainer.appendChild(delayValLabel);
+
         const delaySlider = document.createElement('input');
         delaySlider.type = 'range';
         delaySlider.min = '1';
@@ -77,14 +141,20 @@
         speedGroup.style.display = 'flex';
         speedGroup.style.flexDirection = 'column';
         speedGroup.style.gap = '4px';
+
         const speedLabelContainer = document.createElement('div');
         speedLabelContainer.style.display = 'flex';
         speedLabelContainer.style.justifyContent = 'space-between';
-        speedLabelContainer.innerHTML = '<span>🚀 滚屏刷新速度:</span>';
+
+        // 🌟 注入问号提示
+        const speedLabel = createLabelWithTooltip('🚀 滚屏刷新速度', '当前页面扫描完后，向下滚屏的停顿间隔。若设为 0ms 为极限速度，但若网络卡顿可能导致触底误判。');
+        speedLabelContainer.appendChild(speedLabel);
+
         speedValLabel = document.createElement('span');
         speedValLabel.innerText = `${CONFIG.scanInterval}ms`;
         speedValLabel.style.color = '#00ba7c';
         speedLabelContainer.appendChild(speedValLabel);
+
         const speedSlider = document.createElement('input');
         speedSlider.type = 'range';
         speedSlider.min = '0';
@@ -103,11 +173,15 @@
         limitGroup.style.display = 'flex';
         limitGroup.style.justifyContent = 'space-between';
         limitGroup.style.alignItems = 'center';
-        limitGroup.innerHTML = '<span>🎯 本次清理上限:</span>';
+
+        // 🌟 注入问号提示
+        const limitLabel = createLabelWithTooltip('🎯 本次清理上限', '强行防封熔断器。单次累计取关达到此数量脚本将自动自杀停止。强烈建议每日不超过100人。');
+        limitGroup.appendChild(limitLabel);
+
         limitInput = document.createElement('input');
         limitInput.type = 'number';
         limitInput.value = CONFIG.maxUnfollowLimit.toString();
-        limitInput.style.width = '60px';
+        limitInput.style.width = '55px';
         limitInput.style.background = '#333';
         limitInput.style.border = '1px solid #555';
         limitInput.style.borderRadius = '5px';
@@ -126,9 +200,9 @@
         hr.style.borderTop = '1px solid #444';
         hr.style.margin = '2px 0';
 
-        // --- 🌟 新增组件 4：日志区 ---
+        // --- 组件 4：实时日志区 ---
         const logLabel = document.createElement('div');
-        logLabel.innerHTML = '<span>📋 日志:</span>';
+        logLabel.innerHTML = '<span>📋 实时取关日志:</span>';
         logLabel.style.fontSize = '12px';
         logLabel.style.color = '#aaa';
 
@@ -141,7 +215,7 @@
         logBox.style.overflowY = 'auto';
         logBox.style.fontSize = '11px';
         logBox.style.lineHeight = '1.5';
-        logBox.style.color = '#00ff66'; // 黑客绿日志流
+        logBox.style.color = '#00ff66';
         logBox.innerHTML = '<div style="color:#888;">[就绪] 等待点击开始...</div>';
 
         // --- 按钮组件 ---
@@ -180,7 +254,7 @@
         container.appendChild(limitGroup);
         container.appendChild(hr);
         container.appendChild(logLabel);
-        container.appendChild(logBox); // 塞入界面
+        container.appendChild(logBox);
         container.appendChild(startManualBtn);
         container.appendChild(startAutoBtn);
         container.appendChild(stopBtn);
@@ -199,14 +273,13 @@
         btn.style.width = '100%';
     }
 
-    // 往面板里打印日志
     function addRealtimeLog(text, color = '#00ff66') {
         if(logBox) {
             const logItem = document.createElement('div');
             logItem.style.color = color;
             logItem.innerText = text;
             logBox.appendChild(logItem);
-            logBox.scrollTop = logBox.scrollHeight; // 滚动条永远滑到最底部
+            logBox.scrollTop = logBox.scrollHeight;
         }
     }
 
@@ -292,8 +365,6 @@
                         if (confirmBtn) {
                             confirmBtn.click();
                             unfollowedList.push(userHandle);
-
-                            // 🌟 核心改动：点完立即追加一行日志
                             addRealtimeLog(`[${unfollowedList.length}] ✅ 已取关 ${userHandle}`);
 
                             const min = CONFIG.minDelay;
