@@ -202,7 +202,7 @@
 
         // --- 组件 4：实时日志区 ---
         const logLabel = document.createElement('div');
-        logLabel.innerHTML = '<span>📋 实时取关日志:</span>';
+        logLabel.innerHTML = '<span>📋 日志:</span>';
         logLabel.style.fontSize = '12px';
         logLabel.style.color = '#aaa';
 
