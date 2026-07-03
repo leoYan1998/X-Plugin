@@ -271,6 +271,7 @@
         btn.style.fontWeight = 'bold';
         btn.style.whiteSpace = 'nowrap';
         btn.style.width = '100%';
+        btn.style.textAlign = 'center';
     }
 
     function addRealtimeLog(text, color = '#00ff66') {
