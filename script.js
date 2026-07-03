@@ -400,8 +400,8 @@
         limitInput.disabled = false;
         startManualBtn.style.backgroundColor = '#1d9bf0';
         startAutoBtn.style.backgroundColor = '#00ba7c';
-        startManualBtn.innerText = '▶️ 半自动守株待兔';
-        startAutoBtn.innerText = '🚀 开启全自动清理';
+        startManualBtn.innerText = '▶️ 半自动';
+        startAutoBtn.innerText = '🚀 全自动';
         stopBtn.style.display = 'none';
 
         addRealtimeLog(`[系统] 清理结束。总计取关: ${unfollowedList.length}人`, '#ffff00');
