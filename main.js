@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         X批量取消非回关 (极致超速版)
+// @name         X自动取消非回关
 // @namespace    http://tampermonkey.net/
 // @version      1.7
 // @author       Leo66
