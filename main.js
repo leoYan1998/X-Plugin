@@ -1,8 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (带安全阀门终极版)
+// @name         X批量取消非回关 (日志全功能版)
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  集成安全阀门输入框，达到设定上限自动熔断停止，全自/半自双模式。
+// @version      1.9
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -19,7 +18,7 @@
         scrollStep: 800,
         scanInterval: 400,
         maxNoActionRetries: 6,
-        maxUnfollowLimit: 80  // 默认安全阀门：80人
+        maxUnfollowLimit: 80
     };
 
     let isRunning = false;
@@ -27,7 +26,7 @@
     let unfollowedList = [];
     let processedUsers = new Set();
     let startManualBtn, startAutoBtn, stopBtn;
-    let delayValLabel, speedValLabel, limitInput;
+    let delayValLabel, speedValLabel, limitInput, logBox;
     let noActionCount = 0;
 
     function createUI() {
@@ -39,14 +38,14 @@
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '12px';
-        container.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        container.style.backgroundColor = 'rgba(0, 0, 0, 0.88)';
         container.style.padding = '15px';
         container.style.borderRadius = '15px';
-        container.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
+        container.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
         container.style.color = '#fff';
-        container.style.fontFamily = 'sans-serif';
+        container.style.fontFamily = 'monospace, sans-serif';
         container.style.fontSize = '13px';
-        container.style.width = '220px';
+        container.style.width = '240px';
 
         // --- 组件 1：取关间隔上限 ---
         const delayGroup = document.createElement('div');
@@ -99,7 +98,7 @@
         speedGroup.appendChild(speedLabelContainer);
         speedGroup.appendChild(speedSlider);
 
-        // --- 🌟 新增组件 3：安全阀门输入框 ---
+        // --- 组件 3：安全阀门输入框 ---
         const limitGroup = document.createElement('div');
         limitGroup.style.display = 'flex';
         limitGroup.style.justifyContent = 'space-between';
@@ -125,7 +124,25 @@
         const hr = document.createElement('hr');
         hr.style.border = '0';
         hr.style.borderTop = '1px solid #444';
-        hr.style.margin = '4px 0';
+        hr.style.margin = '2px 0';
+
+        // --- 🌟 新增组件 4：日志区 ---
+        const logLabel = document.createElement('div');
+        logLabel.innerHTML = '<span>📋 日志:</span>';
+        logLabel.style.fontSize = '12px';
+        logLabel.style.color = '#aaa';
+
+        logBox = document.createElement('div');
+        logBox.style.height = '120px';
+        logBox.style.backgroundColor = '#111';
+        logBox.style.border = '1px solid #333';
+        logBox.style.borderRadius = '8px';
+        logBox.style.padding = '8px';
+        logBox.style.overflowY = 'auto';
+        logBox.style.fontSize = '11px';
+        logBox.style.lineHeight = '1.5';
+        logBox.style.color = '#00ff66'; // 黑客绿日志流
+        logBox.innerHTML = '<div style="color:#888;">[就绪] 等待点击开始...</div>';
 
         // --- 按钮组件 ---
         startManualBtn = document.createElement('button');
@@ -160,8 +177,10 @@
 
         container.appendChild(delayGroup);
         container.appendChild(speedGroup);
-        container.appendChild(limitGroup); // 塞入界面
+        container.appendChild(limitGroup);
         container.appendChild(hr);
+        container.appendChild(logLabel);
+        container.appendChild(logBox); // 塞入界面
         container.appendChild(startManualBtn);
         container.appendChild(startAutoBtn);
         container.appendChild(stopBtn);
@@ -180,6 +199,17 @@
         btn.style.width = '100%';
     }
 
+    // 往面板里打印日志
+    function addRealtimeLog(text, color = '#00ff66') {
+        if(logBox) {
+            const logItem = document.createElement('div');
+            logItem.style.color = color;
+            logItem.innerText = text;
+            logBox.appendChild(logItem);
+            logBox.scrollTop = logBox.scrollHeight; // 滚动条永远滑到最底部
+        }
+    }
+
     function lockUI(mode, text) {
         isRunning = true;
         currentMode = mode;
@@ -187,9 +217,11 @@
         processedUsers.clear();
         noActionCount = 0;
 
+        logBox.innerHTML = `<div style="color:#e1a100;">[系统] 模式切换，开始扫描...</div>`;
+
         startManualBtn.disabled = true;
         startAutoBtn.disabled = true;
-        limitInput.disabled = true; // 运行时不允许修改阀门
+        limitInput.disabled = true;
         startManualBtn.style.backgroundColor = '#ccc';
         startAutoBtn.style.backgroundColor = '#ccc';
 
@@ -202,9 +234,8 @@
     function checkInterrupt() {
         if (!isRunning) throw new Error("USER_INTERRUPT");
 
-        // 🌟 核心安全阀门逻辑：一旦达到设定的数字，直接触发熔断中断
         if (unfollowedList.length >= CONFIG.maxUnfollowLimit) {
-            console.log(`🚨 已达到设定的安全阀门上限（${CONFIG.maxUnfollowLimit}人），正在自动熔断停止！`);
+            addRealtimeLog(`🚨 已触及设定的上限阀门！`, '#ff3333');
             isRunning = false;
             throw new Error("USER_INTERRUPT");
         }
@@ -255,13 +286,15 @@
                         await interruptibleSleep(100);
 
                         followingBtn.click();
-
                         await interruptibleSleep(250);
 
                         const confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
                         if (confirmBtn) {
                             confirmBtn.click();
-                            unfollowedList.push(userHandle); // 这里塞入后，下一次 checkInterrupt 就会立刻检测计数
+                            unfollowedList.push(userHandle);
+
+                            // 🌟 核心改动：点完立即追加一行日志
+                            addRealtimeLog(`[${unfollowedList.length}] ✅ 已取关 ${userHandle}`);
 
                             const min = CONFIG.minDelay;
                             const max = Math.max(min + 100, CONFIG.maxDelay);
@@ -278,7 +311,10 @@
                     noActionCount++;
                     window.scrollBy({ top: CONFIG.scrollStep, behavior: 'auto' });
                     await interruptibleSleep(CONFIG.scanInterval);
-                    if (noActionCount >= CONFIG.maxNoActionRetries) break;
+                    if (noActionCount >= CONFIG.maxNoActionRetries) {
+                        addRealtimeLog(`[系统] 已经到达列表底部。`, '#888');
+                        break;
+                    }
                 } else {
                     await interruptibleSleep(200);
                 }
@@ -290,19 +326,21 @@
         isRunning = false;
         startManualBtn.disabled = false;
         startAutoBtn.disabled = false;
-        limitInput.disabled = false; // 恢复阀门输入框
+        limitInput.disabled = false;
         startManualBtn.style.backgroundColor = '#1d9bf0';
         startAutoBtn.style.backgroundColor = '#00ba7c';
         startManualBtn.innerText = '▶️ 半自动守株待兔';
         startAutoBtn.innerText = '🚀 开启全自动清理';
         stopBtn.style.display = 'none';
 
+        addRealtimeLog(`[系统] 清理结束。总计取关: ${unfollowedList.length}人`, '#ffff00');
+
         setTimeout(() => {
             const isHitLimit = unfollowedList.length >= CONFIG.maxUnfollowLimit;
             const titleText = isHitLimit ? "🛑 已触及安全阀门自动熔断" : "🎉 清理结束";
 
             if (unfollowedList.length > 0) {
-                alert(`${titleText}！\n\n本次共成功取关了 ${unfollowedList.length} 个非回关账户：\n\n${unfollowedList.join('\n')}`);
+                alert(`${titleText}！\n\n本次共成功取关了 ${unfollowedList.length} 个非回关账户。\n（详细名单已留在右侧面板日志区）`);
             } else {
                 alert(`🎉 检查结束，未取关任何账户。`);
             }
