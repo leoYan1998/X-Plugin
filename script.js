@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (海王管理大师版)
+// @name         X批量取消非回关 (海王管理大师精修UI版)
 // @namespace    http://tampermonkey.net/
-// @version      4.0
+// @version      4.1
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -42,7 +42,7 @@
                 display: inline-block;
                 cursor: help;
                 margin-left: 4px;
-                color: #888;
+                color: #aaa;
                 font-size: 11px;
                 user-select: none;
             }
@@ -52,37 +52,39 @@
                 bottom: 125%;
                 left: 50%;
                 transform: translateX(-50%);
-                background-color: rgba(20, 20, 20, 0.95);
+                background-color: rgba(15, 15, 15, 0.95);
                 color: #fff;
-                padding: 6px 10px;
-                border-radius: 6px;
+                padding: 8px 12px;
+                border-radius: 8px;
                 font-size: 11px;
                 line-height: 1.4;
                 white-space: normal;
-                width: 160px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-                border: 1px solid #444;
+                width: 170px;
+                box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 opacity: 0;
                 pointer-events: none;
-                transition: opacity 0.15s ease;
+                transition: opacity 0.15s ease, transform 0.15s ease;
+                transform: translateX(-50%) translateY(4px);
                 z-index: 10000;
                 font-family: sans-serif;
             }
             .x-helper-tooltip:hover::after {
                 opacity: 1;
+                transform: translateX(-50%) translateY(0);
             }
             .x-highlight-user {
                 outline: 2px solid #1d9bf0 !important;
-                background-color: rgba(29, 155, 240, 0.1) !important;
+                background-color: rgba(29, 155, 240, 0.15) !important;
                 transition: all 0.3s ease;
             }
             /* 模式切换页签样式 */
             .x-tab-container {
                 display: flex;
-                background: #111;
+                background: rgba(255, 255, 255, 0.05);
                 border-radius: 8px;
                 padding: 2px;
-                border: 1px solid #333;
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }
             .x-tab-btn {
                 flex: 1;
@@ -97,11 +99,23 @@
             .x-tab-active {
                 background: #1d9bf0;
                 color: #fff;
+                box-shadow: 0 2px 6px rgba(29, 155, 240, 0.3);
             }
             .x-tab-disabled {
-                color: #555;
+                color: #666;
                 cursor: not-allowed;
                 opacity: 0.5;
+            }
+            /* 输入框及滑块统一样式优化 */
+            .x-input-style {
+                background: rgba(255, 255, 255, 0.08) !important;
+                border: 1px solid rgba(255, 255, 255, 0.15) !important;
+                transition: all 0.2s;
+            }
+            .x-input-style:focus {
+                border-color: #1d9bf0 !important;
+                background: rgba(255, 255, 255, 0.12) !important;
+                outline: none;
             }
         `;
         document.head.appendChild(style);
@@ -129,16 +143,21 @@
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '12px';
-        container.style.backgroundColor = 'rgba(0, 0, 0, 0.88)';
-        container.style.padding = '15px';
-        container.style.borderRadius = '15px';
-        container.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
+        container.style.width = '240px';
+        container.style.padding = '16px';
+        container.style.borderRadius = '16px';
         container.style.color = '#fff';
         container.style.fontFamily = 'monospace, sans-serif';
         container.style.fontSize = '13px';
-        container.style.width = '240px';
 
-        // 🌟 新增：顶部大标题与赛博功德箱（左右分栏结构）
+        // 🌟 赛博朋克微透毛玻璃面板
+        container.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
+        container.style.backdropFilter = 'blur(12px)';
+        container.style.webkitBackdropFilter = 'blur(12px)';
+        container.style.border = '1px solid rgba(255, 255, 255, 0.14)';
+        container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+
+        // 🌟 顶部大标题与赛博功德箱
         const headerRow = document.createElement('div');
         headerRow.style.display = 'flex';
         headerRow.style.justifyContent = 'space-between';
@@ -149,6 +168,7 @@
         titleSpan.style.fontWeight = 'bold';
         titleSpan.style.fontSize = '14px';
         titleSpan.style.color = '#1d9bf0';
+        titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
 
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
@@ -158,6 +178,7 @@
         sponsorSpan.style.color = '#e1a100';
         sponsorSpan.style.cursor = 'pointer';
         sponsorSpan.style.opacity = '0.8';
+        sponsorSpan.style.transition = 'opacity 0.2s';
         sponsorSpan.onmouseover = () => sponsorSpan.style.opacity = '1';
         sponsorSpan.onmouseout = () => sponsorSpan.style.opacity = '0.8';
         sponsorSpan.onclick = () => {
@@ -170,7 +191,7 @@
 
         const hrTop = document.createElement('hr');
         hrTop.style.border = '0';
-        hrTop.style.borderTop = '1px solid #333';
+        hrTop.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
         hrTop.style.margin = '0';
         container.appendChild(hrTop);
 
@@ -196,6 +217,7 @@
         delaySlider.type = 'range';
         delaySlider.min = '1';
         delaySlider.max = '8';
+        delaySlider.style.cursor = 'pointer';
         delaySlider.value = (CONFIG.maxDelay / 1000).toString();
         delaySlider.oninput = (e) => {
             CONFIG.maxDelay = parseInt(e.target.value) * 1000;
@@ -227,6 +249,7 @@
         speedSlider.min = '0';
         speedSlider.max = '2000';
         speedSlider.step = '50';
+        speedSlider.style.cursor = 'pointer';
         speedSlider.value = CONFIG.scanInterval.toString();
         speedSlider.oninput = (e) => {
             CONFIG.scanInterval = parseInt(e.target.value);
@@ -246,13 +269,12 @@
 
         limitInput = document.createElement('input');
         limitInput.type = 'number';
+        limitInput.className = 'x-input-style';
         limitInput.value = CONFIG.maxUnfollowLimit.toString();
         limitInput.style.width = '55px';
-        limitInput.style.background = '#333';
-        limitInput.style.border = '1px solid #555';
-        limitInput.style.borderRadius = '5px';
+        limitInput.style.borderRadius = '6px';
         limitInput.style.color = '#fff';
-        limitInput.style.padding = '3px 5px';
+        limitInput.style.padding = '4px 6px';
         limitInput.style.textAlign = 'center';
         limitInput.onchange = (e) => {
             let val = parseInt(e.target.value);
@@ -281,7 +303,7 @@
         };
         autoExecGroup.appendChild(autoExecCheck);
 
-        // 🌟 新增：双向模式切换 Tab 栏（回关模式预留灰掉）
+        // 🌟 模式切换页签样式
         const modeTabContainer = document.createElement('div');
         modeTabContainer.className = 'x-tab-container';
 
@@ -299,7 +321,7 @@
 
         const hr = document.createElement('hr');
         hr.style.border = '0';
-        hr.style.borderTop = '1px solid #444';
+        hr.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
         hr.style.margin = '2px 0';
 
         // --- 组件 4：实时日志区 ---
@@ -310,8 +332,8 @@
 
         logBox = document.createElement('div');
         logBox.style.height = '120px';
-        logBox.style.backgroundColor = '#111';
-        logBox.style.border = '1px solid #333';
+        logBox.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        logBox.style.border = '1px solid rgba(255, 255, 255, 0.1)';
         logBox.style.borderRadius = '8px';
         logBox.style.padding = '8px';
         logBox.style.overflowY = 'auto';
@@ -333,6 +355,7 @@
         styleButton(stopBtn, '#e0245e');
         stopBtn.style.display = 'none';
 
+        // 恢复 4.0 纯正逻辑，绝无多余变量改动
         startManualBtn.onclick = async () => {
             lockUI("manual", '⏳ 半自动监控中...');
             try { await startUnfollowProcess(false); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
@@ -362,7 +385,7 @@
         container.appendChild(speedGroup);
         container.appendChild(limitGroup);
         container.appendChild(autoExecGroup);
-        container.appendChild(modeTabContainer); // 塞入模式页签
+        container.appendChild(modeTabContainer);
         container.appendChild(hr);
         container.appendChild(logLabel);
         container.appendChild(logBox);
@@ -383,6 +406,17 @@
         btn.style.whiteSpace = 'nowrap';
         btn.style.width = '100%';
         btn.style.textAlign = 'center';
+        btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        btn.style.transition = 'all 0.2s ease';
+
+        btn.onmouseover = () => {
+            btn.style.opacity = '0.9';
+            btn.style.transform = 'scale(1.02)';
+        };
+        btn.onmouseout = () => {
+            btn.style.opacity = '1';
+            btn.style.transform = 'scale(1)';
+        };
     }
 
     function addRealtimeLog(text, color = '#00ff66') {
@@ -415,14 +449,19 @@
         startAutoBtn.disabled = true;
         limitInput.disabled = true;
         autoExecCheck.disabled = true;
-        startManualBtn.style.backgroundColor = '#ccc';
-        startAutoBtn.style.backgroundColor = '#ccc';
+
+        // 样式跟随整体面板，使用暗灰禁用色
+        startManualBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
+        startAutoBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
+        startManualBtn.style.color = '#666';
+        startAutoBtn.style.color = '#666';
 
         if(mode === "manual") startManualBtn.innerText = text;
         if(mode === "auto") startAutoBtn.innerText = text;
 
         stopBtn.style.display = 'block';
         stopBtn.style.backgroundColor = '#e0245e';
+        stopBtn.style.color = '#fff';
         stopBtn.innerText = '🛑 停止清理';
     }
 
@@ -571,6 +610,8 @@
 
             startManualBtn.style.backgroundColor = '#1d9bf0';
             startAutoBtn.style.backgroundColor = '#00ba7c';
+            startManualBtn.style.color = '#fff';
+            startAutoBtn.style.color = '#fff';
             startManualBtn.innerText = '▶️ 继续(半自动)';
             startAutoBtn.innerText = '🚀 继续(全自动)';
 
@@ -590,6 +631,8 @@
 
         startManualBtn.style.backgroundColor = '#1d9bf0';
         startAutoBtn.style.backgroundColor = '#00ba7c';
+        startManualBtn.style.color = '#fff';
+        startAutoBtn.style.color = '#fff';
         startManualBtn.innerText = '▶️ 半自动';
         startAutoBtn.innerText = '🚀 全自动';
         stopBtn.style.display = 'none';
