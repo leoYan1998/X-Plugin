@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         X批量取消非回关 (海王管理大师精修UI版-赞助标签化)
+// @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
 // @version      4.7
 // @author       Leo66
