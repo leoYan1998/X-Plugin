@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关
+// @name         X批量取消非回关 
 // @namespace    http://tampermonkey.net/
-// @version      4.7
+// @version      5.1
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -36,6 +36,43 @@
     function injectStyles() {
         const style = document.createElement('style');
         style.innerHTML = `
+            /* 🌈 极光流变核心动画 */
+            @keyframes aurora-flow {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            .x-aurora-panel {
+                position: fixed;
+                top: 70px;
+                right: 20px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                width: 240px;
+                padding: 16px;
+                border-radius: 16px;
+                color: #fff;
+                font-family: monospace, sans-serif;
+                font-size: 13px;
+                transition: opacity 0.2s, transform 0.2s;
+
+                /* 🎨 双层背景裁切：完美解决 border-image 破坏圆角的问题 */
+                border: 1.5px solid transparent;
+                background-image: linear-gradient(rgba(15, 15, 15, 0.75), rgba(15, 15, 15, 0.75)),
+                                  linear-gradient(135deg, #1d9bf0, #a855f7, #00ba7c, #1d9bf0);
+                background-origin: border-box;
+                background-clip: padding-box, border-box;
+                background-size: 100% 100%, 400% 400%;
+                animation: aurora-flow 6s ease infinite;
+
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            }
+
             .x-helper-tooltip {
                 position: relative;
                 display: inline-block;
@@ -133,26 +170,7 @@
         injectStyles();
 
         const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.top = '70px';
-        container.style.right = '20px';
-        container.style.zIndex = '9999';
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '12px';
-        container.style.width = '240px';
-        container.style.padding = '16px';
-        container.style.borderRadius = '16px';
-        container.style.color = '#fff';
-        container.style.fontFamily = 'monospace, sans-serif';
-        container.style.fontSize = '13px';
-        container.style.transition = 'opacity 0.2s, transform 0.2s';
-
-        container.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
-        container.style.backdropFilter = 'blur(12px)';
-        container.style.webkitBackdropFilter = 'blur(12px)';
-        container.style.border = '1px solid rgba(255, 255, 255, 0.14)';
-        container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+        container.className = 'x-aurora-panel';
 
         const miniBtn = document.createElement('div');
         miniBtn.style.position = 'fixed';
@@ -385,7 +403,7 @@
         styleButton(stopAndSettleBtn, '#ff6b00');
         stopAndSettleBtn.style.display = 'none';
 
-        // 🌟 底部纯净文本行（Flex 两端对齐，左侧放版本，右侧预留干净点击标签）
+        // 底部纯净文本行（左版本，右纯标签功德箱）
         const footerRow = document.createElement('div');
         footerRow.style.display = 'flex';
         footerRow.style.justifyContent = 'space-between';
@@ -395,7 +413,7 @@
         footerRow.style.color = '#666';
 
         const versionSpan = document.createElement('span');
-        versionSpan.innerText = 'v4.7';
+        versionSpan.innerText = 'v5.1';
 
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
@@ -410,7 +428,7 @@
         sponsorSpan.onclick = () => console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
 
         footerRow.appendChild(versionSpan);
-        footerRow.appendChild(sponsorSpan); // 放在右侧
+        footerRow.appendChild(sponsorSpan);
 
         // 核心整合点击逻辑
         mainActionBtn.onclick = async () => {
@@ -448,7 +466,7 @@
         container.appendChild(logBox);
         container.appendChild(mainActionBtn);
         container.appendChild(stopAndSettleBtn);
-        container.appendChild(footerRow); // 将整行塞入底部
+        container.appendChild(footerRow);
 
         document.body.appendChild(container);
         document.body.appendChild(miniBtn);
