@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (海王管理大师精修版)
+// @name         X批量取消非回关 (海王管理大师版)
 // @namespace    http://tampermonkey.net/
-// @version      4.1
+// @version      4.0
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -19,12 +19,12 @@
         scanInterval: 400,
         maxNoActionRetries: 6,
         maxUnfollowLimit: 80,
-        autoExecute: false // 默认由按钮决定，也可以通过面板勾选控制
+        autoExecute: false
     };
 
     let isRunning = false;
     let isPausedForManual = false;
-    let currentMode = ""; // "manual" 或 "auto"
+    let currentMode = "";
     let unfollowedList = [];
     let processedUsers = new Set();
     let startManualBtn, startAutoBtn, stopBtn;
@@ -42,7 +42,7 @@
                 display: inline-block;
                 cursor: help;
                 margin-left: 4px;
-                color: #aaa;
+                color: #888;
                 font-size: 11px;
                 user-select: none;
             }
@@ -60,8 +60,8 @@
                 line-height: 1.4;
                 white-space: normal;
                 width: 160px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+                border: 1px solid #444;
                 opacity: 0;
                 pointer-events: none;
                 transition: opacity 0.15s ease;
@@ -73,15 +73,16 @@
             }
             .x-highlight-user {
                 outline: 2px solid #1d9bf0 !important;
-                background-color: rgba(29, 155, 240, 0.15) !important;
+                background-color: rgba(29, 155, 240, 0.1) !important;
                 transition: all 0.3s ease;
             }
+            /* 模式切换页签样式 */
             .x-tab-container {
                 display: flex;
-                background: rgba(255, 255, 255, 0.05);
+                background: #111;
                 border-radius: 8px;
                 padding: 2px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                border: 1px solid #333;
             }
             .x-tab-btn {
                 flex: 1;
@@ -98,7 +99,7 @@
                 color: #fff;
             }
             .x-tab-disabled {
-                color: #666;
+                color: #555;
                 cursor: not-allowed;
                 opacity: 0.5;
             }
@@ -128,21 +129,16 @@
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '12px';
-        container.style.width = '240px';
+        container.style.backgroundColor = 'rgba(0, 0, 0, 0.88)';
         container.style.padding = '15px';
         container.style.borderRadius = '15px';
+        container.style.boxShadow = '0 4px 15px rgba(0,0,0,0.5)';
         container.style.color = '#fff';
         container.style.fontFamily = 'monospace, sans-serif';
         container.style.fontSize = '13px';
+        container.style.width = '240px';
 
-        // 🌟 【方案一整改核心】: 赛博高透玻璃拟态
-        container.style.backgroundColor = 'rgba(15, 15, 15, 0.75)'; // 半透明极暗底
-        container.style.backdropFilter = 'blur(12px)';              // 核心：毛玻璃模糊
-        container.style.webkitBackdropFilter = 'blur(12px)';        // 兼容 Safari
-        container.style.border = '1px solid rgba(255, 255, 255, 0.16)'; // 核心：高光微亮白边框，全黑下也能显形
-        container.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'; // 外阴影+内发光
-
-        // 顶部大标题与赛博功德箱
+        // 🌟 新增：顶部大标题与赛博功德箱（左右分栏结构）
         const headerRow = document.createElement('div');
         headerRow.style.display = 'flex';
         headerRow.style.justifyContent = 'space-between';
@@ -153,7 +149,6 @@
         titleSpan.style.fontWeight = 'bold';
         titleSpan.style.fontSize = '14px';
         titleSpan.style.color = '#1d9bf0';
-        titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
 
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
@@ -175,7 +170,7 @@
 
         const hrTop = document.createElement('hr');
         hrTop.style.border = '0';
-        hrTop.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
+        hrTop.style.borderTop = '1px solid #333';
         hrTop.style.margin = '0';
         container.appendChild(hrTop);
 
@@ -202,7 +197,6 @@
         delaySlider.min = '1';
         delaySlider.max = '8';
         delaySlider.value = (CONFIG.maxDelay / 1000).toString();
-        delaySlider.style.cursor = 'pointer';
         delaySlider.oninput = (e) => {
             CONFIG.maxDelay = parseInt(e.target.value) * 1000;
             delayValLabel.innerText = `${e.target.value}秒`;
@@ -234,7 +228,6 @@
         speedSlider.max = '2000';
         speedSlider.step = '50';
         speedSlider.value = CONFIG.scanInterval.toString();
-        speedSlider.style.cursor = 'pointer';
         speedSlider.oninput = (e) => {
             CONFIG.scanInterval = parseInt(e.target.value);
             speedValLabel.innerText = CONFIG.scanInterval === 0 ? "⚡ 极限极速" : `${e.target.value}ms`;
@@ -255,8 +248,8 @@
         limitInput.type = 'number';
         limitInput.value = CONFIG.maxUnfollowLimit.toString();
         limitInput.style.width = '55px';
-        limitInput.style.background = 'rgba(255, 255, 255, 0.1)';
-        limitInput.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+        limitInput.style.background = '#333';
+        limitInput.style.border = '1px solid #555';
         limitInput.style.borderRadius = '5px';
         limitInput.style.color = '#fff';
         limitInput.style.padding = '3px 5px';
@@ -288,7 +281,7 @@
         };
         autoExecGroup.appendChild(autoExecCheck);
 
-        // 双向模式切换 Tab 栏
+        // 🌟 新增：双向模式切换 Tab 栏（回关模式预留灰掉）
         const modeTabContainer = document.createElement('div');
         modeTabContainer.className = 'x-tab-container';
 
@@ -306,7 +299,7 @@
 
         const hr = document.createElement('hr');
         hr.style.border = '0';
-        hr.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
+        hr.style.borderTop = '1px solid #444';
         hr.style.margin = '2px 0';
 
         // --- 组件 4：实时日志区 ---
@@ -317,15 +310,15 @@
 
         logBox = document.createElement('div');
         logBox.style.height = '120px';
-        logBox.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; // 日志背景透视深色
-        logBox.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        logBox.style.backgroundColor = '#111';
+        logBox.style.border = '1px solid #333';
         logBox.style.borderRadius = '8px';
         logBox.style.padding = '8px';
         logBox.style.overflowY = 'auto';
         logBox.style.fontSize = '11px';
         logBox.style.lineHeight = '1.5';
         logBox.style.color = '#00ff66';
-        logBox.innerHTML = '<div style="color:#aaa;">[就绪] 海王雷达已部署，等待启动...</div>';
+        logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
 
         startManualBtn = document.createElement('button');
         startManualBtn.innerText = '▶️ 半自动';
@@ -340,20 +333,15 @@
         styleButton(stopBtn, '#e0245e');
         stopBtn.style.display = 'none';
 
-        // 绑定整改后的业务调度逻辑
         startManualBtn.onclick = async () => {
-            CONFIG.autoExecute = false;
-            autoExecCheck.checked = false;
             lockUI("manual", '⏳ 半自动监控中...');
-            try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
+            try { await startUnfollowProcess(false); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
             finishProcess();
         };
 
         startAutoBtn.onclick = async () => {
-            CONFIG.autoExecute = true;
-            autoExecCheck.checked = true;
             lockUI("auto", '🤖 全自动运行中...');
-            try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
+            try { await startUnfollowProcess(true); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
             finishProcess();
         };
 
@@ -374,7 +362,7 @@
         container.appendChild(speedGroup);
         container.appendChild(limitGroup);
         container.appendChild(autoExecGroup);
-        container.appendChild(modeTabContainer);
+        container.appendChild(modeTabContainer); // 塞入模式页签
         container.appendChild(hr);
         container.appendChild(logLabel);
         container.appendChild(logBox);
@@ -395,10 +383,6 @@
         btn.style.whiteSpace = 'nowrap';
         btn.style.width = '100%';
         btn.style.textAlign = 'center';
-        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-        btn.style.transition = 'opacity 0.2s';
-        btn.onmouseover = () => btn.style.opacity = '0.9';
-        btn.onmouseout = () => btn.style.opacity = '1';
     }
 
     function addRealtimeLog(text, color = '#00ff66') {
@@ -431,8 +415,8 @@
         startAutoBtn.disabled = true;
         limitInput.disabled = true;
         autoExecCheck.disabled = true;
-        startManualBtn.style.backgroundColor = '#555';
-        startAutoBtn.style.backgroundColor = '#555';
+        startManualBtn.style.backgroundColor = '#ccc';
+        startAutoBtn.style.backgroundColor = '#ccc';
 
         if(mode === "manual") startManualBtn.innerText = text;
         if(mode === "auto") startAutoBtn.innerText = text;
@@ -493,13 +477,12 @@
         }
     }
 
-    // 🌟 修复后的核心业务循环：彻底解除死循环逻辑
-    async function startUnfollowProcess() {
+    async function startUnfollowProcess(autoScroll) {
         while (isRunning) {
             checkInterrupt();
 
             const userCells = document.querySelectorAll('[data-testid="UserCell"]');
-            let foundTargetThisLoop = false;
+            let itemProcessedThisLoop = false;
 
             for (const cell of userCells) {
                 checkInterrupt();
@@ -518,13 +501,9 @@
                     const followingBtn = cell.querySelector('[data-testid$="-unfollow"]');
 
                     if (followingBtn) {
-                        foundTargetThisLoop = true;
-                        noActionCount = 0; // 重置触底计数器
-
                         cell.scrollIntoView({ block: 'center' });
-                        await interruptibleSleep(300); // 稍微延长等待滚动完成，防止误触
+                        await interruptibleSleep(200);
 
-                        // 半自动模式：锁定目标，高亮并暂停
                         if (!CONFIG.autoExecute) {
                             cell.classList.add('x-highlight-user');
                             addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
@@ -538,18 +517,14 @@
                             throw new Error("MANUAL_PAUSE");
                         }
 
-                        // 全自动模式：自动点击取关
                         processedUsers.add(userHandle);
+                        noActionCount = 0;
+                        itemProcessedThisLoop = true;
+
                         followingBtn.click();
+                        await interruptibleSleep(250);
 
-                        // 🌟 智能轮询动态捕捉弹窗，防止网络卡顿跳过确认
-                        let confirmBtn = null;
-                        for (let retries = 0; retries < 10; retries++) {
-                            await interruptibleSleep(100);
-                            confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
-                            if (confirmBtn) break;
-                        }
-
+                        const confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
                         if (confirmBtn) {
                             confirmBtn.click();
                             unfollowedList.push(userHandle);
@@ -560,27 +535,28 @@
                             const delay = Math.floor(Math.random() * (max - min + 1)) + min;
 
                             await interruptibleSleep(delay);
-                        } else {
-                            addRealtimeLog(`⚠️ 未能捕获到二次确认弹窗，跳过用户: ${userHandle}`, '#ff9900');
                         }
                     } else {
                         processedUsers.add(userHandle);
                     }
                 } else {
-                    // 如果对方关注了我，标记为已处理
                     processedUsers.add(userHandle);
+                    noActionCount = 0;
+                    itemProcessedThisLoop = true;
                 }
             }
 
-            // 🌟 关键修复：当前可视区域无可取关的目标（可能全是回关者或已扫描用户），果断向下滚屏刷新数据
-            if (!foundTargetThisLoop) {
-                noActionCount++;
-                window.scrollBy({ top: CONFIG.scrollStep, behavior: 'auto' });
-                await interruptibleSleep(CONFIG.scanInterval);
-
-                if (noActionCount >= CONFIG.maxNoActionRetries) {
-                    addRealtimeLog(`[系统] 连续多次滚屏未发现新账户，已到达列表底部或数据流断开。`, '#888');
-                    break;
+            if (!itemProcessedThisLoop) {
+                if (autoScroll) {
+                    noActionCount++;
+                    window.scrollBy({ top: CONFIG.scrollStep, behavior: 'auto' });
+                    await interruptibleSleep(CONFIG.scanInterval);
+                    if (noActionCount >= CONFIG.maxNoActionRetries) {
+                        addRealtimeLog(`[系统] 已经到达列表底部。`, '#888');
+                        break;
+                    }
+                } else {
+                    await interruptibleSleep(200);
                 }
             }
         }
