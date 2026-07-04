@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      3.2
+// @version      3.3
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -31,7 +31,6 @@
     let delayValLabel, speedValLabel, limitInput, logBox, autoExecCheck;
     let noActionCount = 0;
 
-    // 🌟 新增：用于暂存手动确认模式下锁定的目标信息
     let lastLockedHandle = null;
     let lastLockedCell = null;
 
@@ -112,7 +111,6 @@
         container.style.fontSize = '13px';
         container.style.width = '240px';
 
-        // --- 组件 1：取关间隔上限 ---
         const delayGroup = document.createElement('div');
         delayGroup.style.display = 'flex';
         delayGroup.style.flexDirection = 'column';
@@ -142,7 +140,6 @@
         delayGroup.appendChild(delayLabelContainer);
         delayGroup.appendChild(delaySlider);
 
-        // --- 组件 2：滚屏刷新速度 ---
         const speedGroup = document.createElement('div');
         speedGroup.style.display = 'flex';
         speedGroup.style.flexDirection = 'column';
@@ -173,7 +170,6 @@
         speedGroup.appendChild(speedLabelContainer);
         speedGroup.appendChild(speedSlider);
 
-        // --- 组件 3：安全阀门输入框 ---
         const limitGroup = document.createElement('div');
         limitGroup.style.display = 'flex';
         limitGroup.style.justifyContent = 'space-between';
@@ -199,7 +195,6 @@
         };
         limitGroup.appendChild(limitInput);
 
-        // --- 组件：自动执行开关 ---
         const autoExecGroup = document.createElement('div');
         autoExecGroup.style.display = 'flex';
         autoExecGroup.style.justifyContent = 'space-between';
@@ -224,7 +219,6 @@
         hr.style.borderTop = '1px solid #444';
         hr.style.margin = '2px 0';
 
-        // --- 组件 4：实时日志区 ---
         const logLabel = document.createElement('div');
         logLabel.innerHTML = '<span>📋 日志:</span>';
         logLabel.style.fontSize = '12px';
@@ -242,7 +236,6 @@
         logBox.style.color = '#00ff66';
         logBox.innerHTML = '<div style="color:#888;">[就绪] 等待点击开始...</div>';
 
-        // --- 按钮组件 ---
         startManualBtn = document.createElement('button');
         startManualBtn.innerText = '▶️ 半自动';
         styleButton(startManualBtn, '#1d9bf0');
@@ -270,7 +263,6 @@
 
         stopBtn.onclick = () => {
             if (isPausedForManual) {
-                // 🌟 如果在人工暂停留守状态选择结算，我们需要先结算上一个可能被用户手动点掉的人
                 checkAndRecordManualAction();
                 isPausedForManual = false;
                 isRunning = false;
@@ -321,7 +313,6 @@
     function lockUI(mode, text) {
         isRunning = true;
 
-        // 🌟 点击“继续”时，先复检上一次锁定的人，看看用户手点取关没有
         if (isPausedForManual) {
             checkAndRecordManualAction();
         }
@@ -350,21 +341,17 @@
         stopBtn.innerText = '🛑 停止清理';
     }
 
-    // 🌟 新增核心方法：核对用户刚才有没有手动取关这个人
     function checkAndRecordManualAction() {
         if (!lastLockedHandle) return;
 
         let hasUnfollowed = false;
 
-        // 如果之前的 DOM 节点还在页面上，直接检查按钮状态
         if (lastLockedCell && document.body.contains(lastLockedCell)) {
-            // 如果原本的“-unfollow”取关按钮不见了，取而代之的是“Follow/关注”按钮，证明用户点过了
             const followingBtn = lastLockedCell.querySelector('[data-testid$="-unfollow"]');
             if (!followingBtn) {
                 hasUnfollowed = true;
             }
         } else {
-            // 如果连 DOM 节点都在滚屏中消失了，暂且默认用户点击了取关（或已被安全跳过）
             hasUnfollowed = true;
         }
 
@@ -375,10 +362,8 @@
             addRealtimeLog(`[系统] 👤 手动介入: 跳过了账户 ${lastLockedHandle}`, '#aaa');
         }
 
-        // 无论如何，都放进已扫描 Set，防止接下来继续抓它
         processedUsers.add(lastLockedHandle);
 
-        // 释放指针缓存
         lastLockedHandle = null;
         lastLockedCell = null;
     }
@@ -387,7 +372,7 @@
         if (!isRunning) throw new Error("USER_INTERRUPT");
 
         if (unfollowedList.length >= CONFIG.maxUnfollowLimit) {
-            addRealtimeLog(`🚨 已触及设定的上限阀门！`, '#ff3333');
+            addRealtimeLog(`🚨 [熔断] 已触及设定的单次安全上限阀门！`, '#ff3333');
             isRunning = false;
             throw new Error("USER_INTERRUPT");
         }
@@ -433,12 +418,10 @@
                         cell.scrollIntoView({ block: 'center' });
                         await interruptibleSleep(200);
 
-                        // 🔍 关闭自动取关，抓到目标
                         if (!CONFIG.autoExecute) {
                             cell.classList.add('x-highlight-user');
                             addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
 
-                            // 🌟 记录现场：把这个 Handle 和 Cell 的控制权存下来
                             lastLockedHandle = userHandle;
                             lastLockedCell = cell;
 
@@ -452,7 +435,6 @@
                             throw new Error("MANUAL_PAUSE");
                         }
 
-                        // 以下为正常自动取关逻辑
                         processedUsers.add(userHandle);
                         noActionCount = 0;
                         itemProcessedThisLoop = true;
@@ -530,20 +512,14 @@
         startAutoBtn.innerText = '🚀 全自动';
         stopBtn.style.display = 'none';
 
-        addRealtimeLog(`[系统] 清理结束。总计取关: ${unfollowedList.length}人`, '#ffff00');
+        // 🌟 移除原有的 setTimeout 弹窗逻辑，结算总结直接打印在日志面板中
+        addRealtimeLog(`=================================`, '#ffff00');
+        addRealtimeLog(`🎉 运行结算：清理工作已安全结束。`, '#ffff00');
+        addRealtimeLog(`📊 本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
+        addRealtimeLog(`=================================`, '#ffff00');
 
-        setTimeout(() => {
-            const isHitLimit = unfollowedList.length >= CONFIG.maxUnfollowLimit;
-            const titleText = isHitLimit ? "🛑 已触及安全阀门自动熔断" : "🎉 清理结束";
-
-            if (unfollowedList.length > 0) {
-                alert(`${titleText}！\n\n本次共成功取关了 ${unfollowedList.length} 个非回关账户。\n（详细名单已留在右侧面板日志区）`);
-            } else {
-                alert(`🎉 检查结束，未取关任何账户。`);
-            }
-            unfollowedList = [];
-            processedUsers.clear();
-        }, 200);
+        unfollowedList = [];
+        processedUsers.clear();
     }
 
     window.addEventListener('load', () => {
