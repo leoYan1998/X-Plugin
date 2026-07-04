@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -19,7 +19,7 @@
         scanInterval: 400,
         maxNoActionRetries: 6,
         maxUnfollowLimit: 80,
-        autoExecute: true
+        autoExecute: false // 🌟 修复：默认关闭自动取关，安全第一
     };
 
     let isRunning = false;
@@ -263,6 +263,7 @@
 
         stopBtn.onclick = () => {
             if (isPausedForManual) {
+                // 🌟 选择结算时，结算上个锁定的账号并放行
                 checkAndRecordManualAction();
                 isPausedForManual = false;
                 isRunning = false;
@@ -313,6 +314,7 @@
     function lockUI(mode, text) {
         isRunning = true;
 
+        // 🌟 修复核心：只要点了继续，先给上一个锁定的目标做结算并【强制放行】
         if (isPausedForManual) {
             checkAndRecordManualAction();
         }
@@ -341,6 +343,7 @@
         stopBtn.innerText = '🛑 停止清理';
     }
 
+    // 🌟 判定上一个人的状态，并将其强制归类为已处理，确保继续往下走
     function checkAndRecordManualAction() {
         if (!lastLockedHandle) return;
 
@@ -348,10 +351,14 @@
 
         if (lastLockedCell && document.body.contains(lastLockedCell)) {
             const followingBtn = lastLockedCell.querySelector('[data-testid$="-unfollow"]');
+            // 如果原本的取关按钮没了，说明用户手动点了取关
             if (!followingBtn) {
                 hasUnfollowed = true;
             }
+            // 取消高亮蓝框样式
+            lastLockedCell.classList.remove('x-highlight-user');
         } else {
+            // DOM 消失，默认可能已被操作过
             hasUnfollowed = true;
         }
 
@@ -359,11 +366,14 @@
             unfollowedList.push(lastLockedHandle);
             addRealtimeLog(`[${unfollowedList.length}] 👤 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
         } else {
-            addRealtimeLog(`[系统] 👤 手动介入: 跳过了账户 ${lastLockedHandle}`, '#aaa');
+            // 🌟 关键：用户没点取关直接点继续，则记为“跳过并保留”，这样他就留在了你的关注列表里
+            addRealtimeLog(`[系统] 👤 手动介入: 保留并跳过账户 ${lastLockedHandle}`, '#aaa');
         }
 
+        // 🌟 【彻底放行】塞入已处理Set。这样下个循环核心引擎一检查，就会直接 continue 跳过他，不会卡死锁定！
         processedUsers.add(lastLockedHandle);
 
+        // 清空现场引用
         lastLockedHandle = null;
         lastLockedCell = null;
     }
@@ -405,6 +415,7 @@
                 const matchHandle = textContent.match(/@\w+/);
                 const userHandle = matchHandle ? matchHandle[0] : null;
 
+                // 🌟 这里会过滤掉已在 processedUsers 中的上个锁定账号，顺利走下去
                 if (!userHandle || processedUsers.has(userHandle)) {
                     continue;
                 }
@@ -427,10 +438,6 @@
 
                             isRunning = false;
                             isPausedForManual = true;
-
-                            setTimeout(() => {
-                                cell.classList.remove('x-highlight-user');
-                            }, 10000);
 
                             throw new Error("MANUAL_PAUSE");
                         }
@@ -512,7 +519,6 @@
         startAutoBtn.innerText = '🚀 全自动';
         stopBtn.style.display = 'none';
 
-        // 🌟 移除原有的 setTimeout 弹窗逻辑，结算总结直接打印在日志面板中
         addRealtimeLog(`=================================`, '#ffff00');
         addRealtimeLog(`🎉 运行结算：清理工作已安全结束。`, '#ffff00');
         addRealtimeLog(`📊 本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
