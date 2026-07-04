@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (海王管理大师精修UI版)
+// @name         X批量取消非回关 (海王管理大师精修UI版-优雅缩放)
 // @namespace    http://tampermonkey.net/
-// @version      4.1
+// @version      4.3
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -78,7 +78,6 @@
                 background-color: rgba(29, 155, 240, 0.15) !important;
                 transition: all 0.3s ease;
             }
-            /* 模式切换页签样式 */
             .x-tab-container {
                 display: flex;
                 background: rgba(255, 255, 255, 0.05);
@@ -106,7 +105,6 @@
                 cursor: not-allowed;
                 opacity: 0.5;
             }
-            /* 输入框及滑块统一样式优化 */
             .x-input-style {
                 background: rgba(255, 255, 255, 0.08) !important;
                 border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -135,6 +133,7 @@
     function createUI() {
         injectStyles();
 
+        // 🌟 主面板容器（保持固定不折行）
         const container = document.createElement('div');
         container.style.position = 'fixed';
         container.style.top = '70px';
@@ -149,15 +148,40 @@
         container.style.color = '#fff';
         container.style.fontFamily = 'monospace, sans-serif';
         container.style.fontSize = '13px';
+        container.style.transition = 'opacity 0.2s, transform 0.2s';
 
-        // 🌟 赛博朋克微透毛玻璃面板
         container.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
         container.style.backdropFilter = 'blur(12px)';
         container.style.webkitBackdropFilter = 'blur(12px)';
         container.style.border = '1px solid rgba(255, 255, 255, 0.14)';
         container.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
 
-        // 🌟 顶部大标题与赛博功德箱
+        // 🌟 悬浮迷你收纳胶囊（缩小后显示这个，绝不换行）
+        const miniBtn = document.createElement('div');
+        miniBtn.style.position = 'fixed';
+        miniBtn.style.top = '70px';
+        miniBtn.style.right = '20px';
+        miniBtn.style.zIndex = '9999';
+        miniBtn.style.display = 'none'; // 默认隐藏
+        miniBtn.style.alignItems = 'center';
+        miniBtn.style.padding = '8px 14px';
+        miniBtn.style.borderRadius = '20px';
+        miniBtn.style.color = '#fff';
+        miniBtn.style.fontSize = '12px';
+        miniBtn.style.fontWeight = 'bold';
+        miniBtn.style.cursor = 'pointer';
+        miniBtn.style.whiteSpace = 'nowrap';
+        miniBtn.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
+        miniBtn.style.backdropFilter = 'blur(12px)';
+        miniBtn.style.webkitBackdropFilter = 'blur(12px)';
+        miniBtn.style.border = '1px solid rgba(29, 155, 240, 0.4)';
+        miniBtn.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
+        miniBtn.innerHTML = '𝕏 展开大师 ➕';
+        miniBtn.style.transition = 'transform 0.2s';
+        miniBtn.onmouseover = () => miniBtn.style.transform = 'scale(1.05)';
+        miniBtn.onmouseout = () => miniBtn.style.transform = 'scale(1)';
+
+        // 🌟 顶部工具栏（一字不漏恢复原版）
         const headerRow = document.createElement('div');
         headerRow.style.display = 'flex';
         headerRow.style.justifyContent = 'space-between';
@@ -170,6 +194,7 @@
         titleSpan.style.color = '#1d9bf0';
         titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
 
+        // 100% 完璧归赵的赞助样式与文字位置
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
         sponsorSpan.setAttribute('data-tip', '点击注入一丝免封玄学，赞助一两碎银，功德+1且有效降低风控概率（接口预留）');
@@ -177,17 +202,46 @@
         sponsorSpan.style.fontSize = '11px';
         sponsorSpan.style.color = '#e1a100';
         sponsorSpan.style.cursor = 'pointer';
-        sponsorSpan.style.opacity = '0.8';
-        sponsorSpan.style.transition = 'opacity 0.2s';
-        sponsorSpan.onmouseover = () => sponsorSpan.style.opacity = '1';
-        sponsorSpan.onmouseout = () => sponsorSpan.style.opacity = '0.8';
-        sponsorSpan.onclick = () => {
-            console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
-        };
+        sponsorSpan.onclick = () => console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
+
+        // 独立的隐藏按钮（不挤占赞助位置）
+        const hideBtn = document.createElement('span');
+        hideBtn.innerText = '➖';
+        hideBtn.style.cursor = 'pointer';
+        hideBtn.style.fontSize = '11px';
+        hideBtn.style.marginLeft = '8px';
+        hideBtn.style.opacity = '0.6';
+        hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
+        hideBtn.onmouseout = () => hideBtn.style.opacity = '0.6';
+
+        const rightHeaderArea = document.createElement('div');
+        rightHeaderArea.style.display = 'flex';
+        rightHeaderArea.style.alignItems = 'center';
+        rightHeaderArea.appendChild(sponsorSpan);
+        rightHeaderArea.appendChild(hideBtn);
 
         headerRow.appendChild(titleSpan);
-        headerRow.appendChild(sponsorSpan);
+        headerRow.appendChild(rightHeaderArea);
         container.appendChild(headerRow);
+
+        // 切换缩放状态的完美互斥逻辑
+        hideBtn.onclick = () => {
+            container.style.opacity = '0';
+            container.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                container.style.display = 'none';
+                miniBtn.style.display = 'flex';
+            }, 200);
+        };
+
+        miniBtn.onclick = () => {
+            miniBtn.style.display = 'none';
+            container.style.display = 'flex';
+            setTimeout(() => {
+                container.style.opacity = '1';
+                container.style.transform = 'scale(1)';
+            }, 20);
+        };
 
         const hrTop = document.createElement('hr');
         hrTop.style.border = '0';
@@ -303,7 +357,7 @@
         };
         autoExecGroup.appendChild(autoExecCheck);
 
-        // 🌟 模式切换页签样式
+        // 选项卡
         const modeTabContainer = document.createElement('div');
         modeTabContainer.className = 'x-tab-container';
 
@@ -355,7 +409,6 @@
         styleButton(stopBtn, '#e0245e');
         stopBtn.style.display = 'none';
 
-        // 恢复 4.0 纯正逻辑，绝无多余变量改动
         startManualBtn.onclick = async () => {
             lockUI("manual", '⏳ 半自动监控中...');
             try { await startUnfollowProcess(false); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
@@ -392,7 +445,9 @@
         container.appendChild(startManualBtn);
         container.appendChild(startAutoBtn);
         container.appendChild(stopBtn);
+
         document.body.appendChild(container);
+        document.body.appendChild(miniBtn);
     }
 
     function styleButton(btn, bgColor) {
@@ -429,6 +484,7 @@
         }
     }
 
+    // 核心锁 UI 与核心取消业务逻辑 100% 保持 4.0 状态
     function lockUI(mode, text) {
         isRunning = true;
 
@@ -450,7 +506,6 @@
         limitInput.disabled = true;
         autoExecCheck.disabled = true;
 
-        // 样式跟随整体面板，使用暗灰禁用色
         startManualBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
         startAutoBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
         startManualBtn.style.color = '#666';
