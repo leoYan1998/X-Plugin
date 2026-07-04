@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      3.1
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -18,18 +18,19 @@
         scrollStep: 800,
         scanInterval: 400,
         maxNoActionRetries: 6,
-        maxUnfollowLimit: 80
+        maxUnfollowLimit: 80,
+        autoExecute: true // 默认打开自动取关
     };
 
     let isRunning = false;
+    let isPausedForManual = false; // 新增：标记当前是否处于人工暂停留守状态
     let currentMode = "";
     let unfollowedList = [];
     let processedUsers = new Set();
     let startManualBtn, startAutoBtn, stopBtn;
-    let delayValLabel, speedValLabel, limitInput, logBox;
+    let delayValLabel, speedValLabel, limitInput, logBox, autoExecCheck;
     let noActionCount = 0;
 
-    // 插入悬浮提示所需的全局 CSS 样式
     function injectStyles() {
         const style = document.createElement('style');
         style.innerHTML = `
@@ -67,20 +68,22 @@
             .x-helper-tooltip:hover::after {
                 opacity: 1;
             }
+            .x-highlight-user {
+                outline: 2px solid #1d9bf0 !important;
+                background-color: rgba(29, 155, 240, 0.1) !important;
+                transition: all 0.3s ease;
+            }
         `;
         document.head.appendChild(style);
     }
 
-    // 创建带提示的标签组合
     function createLabelWithTooltip(labelText, tooltipText) {
         const container = document.createElement('span');
         container.innerText = labelText;
-
         const qMark = document.createElement('span');
         qMark.className = 'x-helper-tooltip';
         qMark.setAttribute('data-tip', tooltipText);
         qMark.innerText = '❓';
-
         container.appendChild(qMark);
         return container;
     }
@@ -115,7 +118,6 @@
         delayLabelContainer.style.display = 'flex';
         delayLabelContainer.style.justifyContent = 'space-between';
 
-        // 🌟 注入问号提示
         const delayLabel = createLabelWithTooltip('⏳ 取关间隔上限', '单次取关后的安全等待时间最大值。拉低可极大提升速度，但容易触发人机验证。');
         delayLabelContainer.appendChild(delayLabel);
 
@@ -146,7 +148,6 @@
         speedLabelContainer.style.display = 'flex';
         speedLabelContainer.style.justifyContent = 'space-between';
 
-        // 🌟 注入问号提示
         const speedLabel = createLabelWithTooltip('🚀 滚屏刷新速度', '当前页面扫描完后，向下滚屏的停顿间隔。若设为 0ms 为极限速度，但若网络卡顿可能导致触底误判。');
         speedLabelContainer.appendChild(speedLabel);
 
@@ -174,7 +175,6 @@
         limitGroup.style.justifyContent = 'space-between';
         limitGroup.style.alignItems = 'center';
 
-        // 🌟 注入问号提示
         const limitLabel = createLabelWithTooltip('🎯 本次清理上限', '强行防封熔断器。单次累计取关达到此数量脚本将自动自杀停止。强烈建议每日不超过100人。');
         limitGroup.appendChild(limitLabel);
 
@@ -194,6 +194,26 @@
             limitInput.value = CONFIG.maxUnfollowLimit;
         };
         limitGroup.appendChild(limitInput);
+
+        // --- 组件：自动执行开关 ---
+        const autoExecGroup = document.createElement('div');
+        autoExecGroup.style.display = 'flex';
+        autoExecGroup.style.justifyContent = 'space-between';
+        autoExecGroup.style.alignItems = 'center';
+
+        const autoExecLabel = createLabelWithTooltip('⚡ 发现目标自动取关', '开启：自动点击取关。关闭：发现目标时暂停滚动并锁定目标，由您手动决定是否取关。');
+        autoExecGroup.appendChild(autoExecLabel);
+
+        autoExecCheck = document.createElement('input');
+        autoExecCheck.type = 'checkbox';
+        autoExecCheck.checked = CONFIG.autoExecute;
+        autoExecCheck.style.cursor = 'pointer';
+        autoExecCheck.style.width = '16px';
+        autoExecCheck.style.height = '16px';
+        autoExecCheck.onchange = (e) => {
+            CONFIG.autoExecute = e.target.checked;
+        };
+        autoExecGroup.appendChild(autoExecCheck);
 
         const hr = document.createElement('hr');
         hr.style.border = '0';
@@ -234,24 +254,34 @@
 
         startManualBtn.onclick = async () => {
             lockUI("manual", '⏳ 半自动监控中...');
-            try { await startUnfollowProcess(false); } catch (e) { if (e.message !== "USER_INTERRUPT") console.error(e); }
+            try { await startUnfollowProcess(false); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
             finishProcess();
         };
 
         startAutoBtn.onclick = async () => {
             lockUI("auto", '🤖 全自动运行中...');
-            try { await startUnfollowProcess(true); } catch (e) { if (e.message !== "USER_INTERRUPT") console.error(e); }
+            try { await startUnfollowProcess(true); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
             finishProcess();
         };
 
         stopBtn.onclick = () => {
-            isRunning = false;
-            stopBtn.innerText = '⏳ 正在安全收尾...';
+            // 🌟 整改核心逻辑：如果当前正处在人工暂停状态，点击该按钮意味着彻底“结算并退出”
+            if (isPausedForManual) {
+                isPausedForManual = false; // 取消暂停状态标记
+                isRunning = false;         // 确保核心循环彻底终止
+                addRealtimeLog(`[系统] 用户选择终止，正在结算...`, '#ff3333');
+                finishProcess();           // 直接去触发最终弹窗和数据清理
+            } else {
+                // 如果是正常运行中点击，则像往常一样温柔收尾
+                isRunning = false;
+                stopBtn.innerText = '⏳ 正在安全收尾...';
+            }
         };
 
         container.appendChild(delayGroup);
         container.appendChild(speedGroup);
         container.appendChild(limitGroup);
+        container.appendChild(autoExecGroup);
         container.appendChild(hr);
         container.appendChild(logLabel);
         container.appendChild(logBox);
@@ -286,22 +316,27 @@
 
     function lockUI(mode, text) {
         isRunning = true;
+        isPausedForManual = false; // 重新跑起来了，重置暂停标记
         currentMode = mode;
-        unfollowedList = [];
-        processedUsers.clear();
-        noActionCount = 0;
 
-        logBox.innerHTML = `<div style="color:#e1a100;">[系统] 模式切换，开始扫描...</div>`;
+        if (unfollowedList.length === 0) {
+            logBox.innerHTML = `<div style="color:#e1a100;">[系统] 开始扫描非回关账户...</div>`;
+        } else {
+            addRealtimeLog(`[系统] 接收指令，继续向下清理...`, '#e1a100');
+        }
 
         startManualBtn.disabled = true;
         startAutoBtn.disabled = true;
         limitInput.disabled = true;
+        autoExecCheck.disabled = true;
         startManualBtn.style.backgroundColor = '#ccc';
         startAutoBtn.style.backgroundColor = '#ccc';
 
         if(mode === "manual") startManualBtn.innerText = text;
         if(mode === "auto") startAutoBtn.innerText = text;
+
         stopBtn.style.display = 'block';
+        stopBtn.style.backgroundColor = '#e0245e'; // 恢复红色样式
         stopBtn.innerText = '🛑 停止清理';
     }
 
@@ -346,10 +381,6 @@
                     continue;
                 }
 
-                processedUsers.add(userHandle);
-                noActionCount = 0;
-                itemProcessedThisLoop = true;
-
                 const isFollowingMe = textContent.includes("Follows you") || textContent.includes("关注了你");
 
                 if (!isFollowingMe) {
@@ -357,7 +388,27 @@
 
                     if (followingBtn) {
                         cell.scrollIntoView({ block: 'center' });
-                        await interruptibleSleep(100);
+                        await interruptibleSleep(200);
+
+                        // 🔍 关闭自动取关，抓到目标
+                        if (!CONFIG.autoExecute) {
+                            cell.classList.add('x-highlight-user');
+                            addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
+
+                            isRunning = false;
+                            isPausedForManual = true; // 🌟 激活“人工留守暂停”标记
+
+                            setTimeout(() => {
+                                cell.classList.remove('x-highlight-user');
+                            }, 10000); // 延长高亮到10秒
+
+                            throw new Error("MANUAL_PAUSE");
+                        }
+
+                        // 以下为正常自动取关逻辑
+                        processedUsers.add(userHandle);
+                        noActionCount = 0;
+                        itemProcessedThisLoop = true;
 
                         followingBtn.click();
                         await interruptibleSleep(250);
@@ -366,7 +417,7 @@
                         if (confirmBtn) {
                             confirmBtn.click();
                             unfollowedList.push(userHandle);
-                            addRealtimeLog(`[${unfollowedList.length}] ✅ 已取关 ${userHandle}`);
+                            addRealtimeLog(`[${unfollowedList.length}] ✅ 已自动取关 ${userHandle}`);
 
                             const min = CONFIG.minDelay;
                             const max = Math.max(min + 100, CONFIG.maxDelay);
@@ -374,7 +425,13 @@
 
                             await interruptibleSleep(delay);
                         }
+                    } else {
+                        processedUsers.add(userHandle);
                     }
+                } else {
+                    processedUsers.add(userHandle);
+                    noActionCount = 0;
+                    itemProcessedThisLoop = true;
                 }
             }
 
@@ -395,10 +452,34 @@
     }
 
     function finishProcess() {
+        // 🌟 整改核心逻辑：如果是因检测到目标而挂起
+        if (isPausedForManual) {
+            startManualBtn.disabled = false;
+            startAutoBtn.disabled = false;
+            limitInput.disabled = false;
+            autoExecCheck.disabled = false;
+
+            startManualBtn.style.backgroundColor = '#1d9bf0';
+            startAutoBtn.style.backgroundColor = '#00ba7c';
+            startManualBtn.innerText = '▶️ 继续(半自动)';
+            startAutoBtn.innerText = '🚀 继续(全自动)';
+
+            // 🌟 让停止按钮不消失，而是变形为“终止结算”状态
+            stopBtn.style.display = 'block';
+            stopBtn.style.backgroundColor = '#ff6b00'; // 橙色警告色
+            stopBtn.innerText = '🏁 结束并结算';
+            return;
+        }
+
+        // 以下为彻底结束任务（或点击了“结束并结算”）的逻辑
         isRunning = false;
+        isPausedForManual = false;
+
         startManualBtn.disabled = false;
         startAutoBtn.disabled = false;
         limitInput.disabled = false;
+        autoExecCheck.disabled = false;
+
         startManualBtn.style.backgroundColor = '#1d9bf0';
         startAutoBtn.style.backgroundColor = '#00ba7c';
         startManualBtn.innerText = '▶️ 半自动';
@@ -416,6 +497,9 @@
             } else {
                 alert(`🎉 检查结束，未取关任何账户。`);
             }
+            // 彻底结算后清空历史
+            unfollowedList = [];
+            processedUsers.clear();
         }, 200);
     }
 
