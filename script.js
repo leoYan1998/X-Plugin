@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      3.1
+// @version      3.2
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -19,17 +19,21 @@
         scanInterval: 400,
         maxNoActionRetries: 6,
         maxUnfollowLimit: 80,
-        autoExecute: true // 默认打开自动取关
+        autoExecute: true
     };
 
     let isRunning = false;
-    let isPausedForManual = false; // 新增：标记当前是否处于人工暂停留守状态
+    let isPausedForManual = false;
     let currentMode = "";
     let unfollowedList = [];
     let processedUsers = new Set();
     let startManualBtn, startAutoBtn, stopBtn;
     let delayValLabel, speedValLabel, limitInput, logBox, autoExecCheck;
     let noActionCount = 0;
+
+    // 🌟 新增：用于暂存手动确认模式下锁定的目标信息
+    let lastLockedHandle = null;
+    let lastLockedCell = null;
 
     function injectStyles() {
         const style = document.createElement('style');
@@ -265,14 +269,14 @@
         };
 
         stopBtn.onclick = () => {
-            // 🌟 整改核心逻辑：如果当前正处在人工暂停状态，点击该按钮意味着彻底“结算并退出”
             if (isPausedForManual) {
-                isPausedForManual = false; // 取消暂停状态标记
-                isRunning = false;         // 确保核心循环彻底终止
+                // 🌟 如果在人工暂停留守状态选择结算，我们需要先结算上一个可能被用户手动点掉的人
+                checkAndRecordManualAction();
+                isPausedForManual = false;
+                isRunning = false;
                 addRealtimeLog(`[系统] 用户选择终止，正在结算...`, '#ff3333');
-                finishProcess();           // 直接去触发最终弹窗和数据清理
+                finishProcess();
             } else {
-                // 如果是正常运行中点击，则像往常一样温柔收尾
                 isRunning = false;
                 stopBtn.innerText = '⏳ 正在安全收尾...';
             }
@@ -316,7 +320,13 @@
 
     function lockUI(mode, text) {
         isRunning = true;
-        isPausedForManual = false; // 重新跑起来了，重置暂停标记
+
+        // 🌟 点击“继续”时，先复检上一次锁定的人，看看用户手点取关没有
+        if (isPausedForManual) {
+            checkAndRecordManualAction();
+        }
+
+        isPausedForManual = false;
         currentMode = mode;
 
         if (unfollowedList.length === 0) {
@@ -336,8 +346,41 @@
         if(mode === "auto") startAutoBtn.innerText = text;
 
         stopBtn.style.display = 'block';
-        stopBtn.style.backgroundColor = '#e0245e'; // 恢复红色样式
+        stopBtn.style.backgroundColor = '#e0245e';
         stopBtn.innerText = '🛑 停止清理';
+    }
+
+    // 🌟 新增核心方法：核对用户刚才有没有手动取关这个人
+    function checkAndRecordManualAction() {
+        if (!lastLockedHandle) return;
+
+        let hasUnfollowed = false;
+
+        // 如果之前的 DOM 节点还在页面上，直接检查按钮状态
+        if (lastLockedCell && document.body.contains(lastLockedCell)) {
+            // 如果原本的“-unfollow”取关按钮不见了，取而代之的是“Follow/关注”按钮，证明用户点过了
+            const followingBtn = lastLockedCell.querySelector('[data-testid$="-unfollow"]');
+            if (!followingBtn) {
+                hasUnfollowed = true;
+            }
+        } else {
+            // 如果连 DOM 节点都在滚屏中消失了，暂且默认用户点击了取关（或已被安全跳过）
+            hasUnfollowed = true;
+        }
+
+        if (hasUnfollowed) {
+            unfollowedList.push(lastLockedHandle);
+            addRealtimeLog(`[${unfollowedList.length}] 👤 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
+        } else {
+            addRealtimeLog(`[系统] 👤 手动介入: 跳过了账户 ${lastLockedHandle}`, '#aaa');
+        }
+
+        // 无论如何，都放进已扫描 Set，防止接下来继续抓它
+        processedUsers.add(lastLockedHandle);
+
+        // 释放指针缓存
+        lastLockedHandle = null;
+        lastLockedCell = null;
     }
 
     function checkInterrupt() {
@@ -395,12 +438,16 @@
                             cell.classList.add('x-highlight-user');
                             addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
 
+                            // 🌟 记录现场：把这个 Handle 和 Cell 的控制权存下来
+                            lastLockedHandle = userHandle;
+                            lastLockedCell = cell;
+
                             isRunning = false;
-                            isPausedForManual = true; // 🌟 激活“人工留守暂停”标记
+                            isPausedForManual = true;
 
                             setTimeout(() => {
                                 cell.classList.remove('x-highlight-user');
-                            }, 10000); // 延长高亮到10秒
+                            }, 10000);
 
                             throw new Error("MANUAL_PAUSE");
                         }
@@ -452,7 +499,6 @@
     }
 
     function finishProcess() {
-        // 🌟 整改核心逻辑：如果是因检测到目标而挂起
         if (isPausedForManual) {
             startManualBtn.disabled = false;
             startAutoBtn.disabled = false;
@@ -464,14 +510,12 @@
             startManualBtn.innerText = '▶️ 继续(半自动)';
             startAutoBtn.innerText = '🚀 继续(全自动)';
 
-            // 🌟 让停止按钮不消失，而是变形为“终止结算”状态
             stopBtn.style.display = 'block';
-            stopBtn.style.backgroundColor = '#ff6b00'; // 橙色警告色
+            stopBtn.style.backgroundColor = '#ff6b00';
             stopBtn.innerText = '🏁 结束并结算';
             return;
         }
 
-        // 以下为彻底结束任务（或点击了“结束并结算”）的逻辑
         isRunning = false;
         isPausedForManual = false;
 
@@ -497,7 +541,6 @@
             } else {
                 alert(`🎉 检查结束，未取关任何账户。`);
             }
-            // 彻底结算后清空历史
             unfollowedList = [];
             processedUsers.clear();
         }, 200);
