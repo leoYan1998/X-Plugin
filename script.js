@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关 (海王管理大师精修UI版-单按钮纯净版)
+// @name         X批量取消非回关 (海王管理大师精修UI版-赞助标签化)
 // @namespace    http://tampermonkey.net/
-// @version      4.4
+// @version      4.7
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -191,32 +191,16 @@
         titleSpan.style.color = '#1d9bf0';
         titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
 
-        const sponsorSpan = document.createElement('span');
-        sponsorSpan.className = 'x-helper-tooltip';
-        sponsorSpan.setAttribute('data-tip', '点击注入一丝免封玄学，赞助一两碎银，功德+1且有效降低风控概率（接口预留）');
-        sponsorSpan.innerText = '💸 功德箱';
-        sponsorSpan.style.fontSize = '11px';
-        sponsorSpan.style.color = '#e1a100';
-        sponsorSpan.style.cursor = 'pointer';
-        sponsorSpan.onclick = () => console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
-
         const hideBtn = document.createElement('span');
         hideBtn.innerText = '➖';
         hideBtn.style.cursor = 'pointer';
-        hideBtn.style.fontSize = '11px';
-        hideBtn.style.marginLeft = '8px';
+        hideBtn.style.fontSize = '12px';
         hideBtn.style.opacity = '0.6';
         hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
         hideBtn.onmouseout = () => hideBtn.style.opacity = '0.6';
 
-        const rightHeaderArea = document.createElement('div');
-        rightHeaderArea.style.display = 'flex';
-        rightHeaderArea.style.alignItems = 'center';
-        rightHeaderArea.appendChild(sponsorSpan);
-        rightHeaderArea.appendChild(hideBtn);
-
         headerRow.appendChild(titleSpan);
-        headerRow.appendChild(rightHeaderArea);
+        headerRow.appendChild(hideBtn);
         container.appendChild(headerRow);
 
         hideBtn.onclick = () => {
@@ -390,7 +374,7 @@
         logBox.style.color = '#00ff66';
         logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
 
-        // 🌟 整合后的唯一大按钮
+        // 主操作按钮
         mainActionBtn = document.createElement('button');
         mainActionBtn.innerText = '🚀 启动程序';
         styleButton(mainActionBtn, '#00ba7c');
@@ -401,19 +385,43 @@
         styleButton(stopAndSettleBtn, '#ff6b00');
         stopAndSettleBtn.style.display = 'none';
 
+        // 🌟 底部纯净文本行（Flex 两端对齐，左侧放版本，右侧预留干净点击标签）
+        const footerRow = document.createElement('div');
+        footerRow.style.display = 'flex';
+        footerRow.style.justifyContent = 'space-between';
+        footerRow.style.alignItems = 'center';
+        footerRow.style.marginTop = '4px';
+        footerRow.style.fontSize = '11px';
+        footerRow.style.color = '#666';
+
+        const versionSpan = document.createElement('span');
+        versionSpan.innerText = 'v4.7';
+
+        const sponsorSpan = document.createElement('span');
+        sponsorSpan.className = 'x-helper-tooltip';
+        sponsorSpan.setAttribute('data-tip', '点击注入一丝免封玄学，赞助一两碎银，功德+1且有效降低风控概率（接口预留）');
+        sponsorSpan.innerText = '💸 功德箱';
+        sponsorSpan.style.color = '#e1a100';
+        sponsorSpan.style.cursor = 'pointer';
+        sponsorSpan.style.opacity = '0.7';
+        sponsorSpan.style.userSelect = 'none';
+        sponsorSpan.onmouseover = () => { sponsorSpan.style.opacity = '1'; };
+        sponsorSpan.onmouseout = () => { sponsorSpan.style.opacity = '0.7'; };
+        sponsorSpan.onclick = () => console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
+
+        footerRow.appendChild(versionSpan);
+        footerRow.appendChild(sponsorSpan); // 放在右侧
+
         // 核心整合点击逻辑
         mainActionBtn.onclick = async () => {
             if (!isRunning && !isPausedForManual) {
-                // 情况一：初始启动
                 lockUI('🤖 运行中...');
                 try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
                 finishProcess();
             } else if (isRunning && !isPausedForManual) {
-                // 情况二：运行中执行一键强行终止
                 isRunning = false;
                 mainActionBtn.innerText = '⏳ 正在安全收尾...';
             } else if (isPausedForManual) {
-                // 情况三：暂停中点击继续
                 lockUI('🤖 继续运行中...');
                 try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
                 finishProcess();
@@ -440,6 +448,7 @@
         container.appendChild(logBox);
         container.appendChild(mainActionBtn);
         container.appendChild(stopAndSettleBtn);
+        container.appendChild(footerRow); // 将整行塞入底部
 
         document.body.appendChild(container);
         document.body.appendChild(miniBtn);
@@ -458,6 +467,7 @@
         btn.style.textAlign = 'center';
         btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
         btn.style.transition = 'all 0.2s ease';
+        btn.style.marginBottom = '4px';
 
         btn.onmouseover = () => {
             btn.style.opacity = '0.9';
@@ -496,7 +506,6 @@
         limitInput.disabled = true;
         autoExecCheck.disabled = true;
 
-        // 运行中，按钮变成鲜红的“停止清理（终止功能）”
         mainActionBtn.innerText = text ? text : '🛑 停止清理';
         mainActionBtn.style.backgroundColor = '#e0245e';
         stopAndSettleBtn.style.display = 'none';
@@ -553,7 +562,6 @@
         }
     }
 
-    // 核心流：移除了不带 autoScroll 的分支，专注于纯正自动滚动扫描
     async function startUnfollowProcess() {
         while (isRunning) {
             checkInterrupt();
@@ -581,7 +589,6 @@
                         cell.scrollIntoView({ block: 'center' });
                         await interruptibleSleep(200);
 
-                        // 核心：若关闭了自动取关，在此中断挂起，转入暂停等待流
                         if (!CONFIG.autoExecute) {
                             cell.classList.add('x-highlight-user');
                             addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
@@ -637,19 +644,16 @@
     }
 
     function finishProcess() {
-        // 如果是暂停等待人工处理状态
         if (isPausedForManual) {
             limitInput.disabled = false;
             autoExecCheck.disabled = false;
 
-            // 转换为主操作按钮负责“继续”，并放出结算终止按钮
             mainActionBtn.innerText = '▶️ 继续清理';
             mainActionBtn.style.backgroundColor = '#1d9bf0';
             stopAndSettleBtn.style.display = 'block';
             return;
         }
 
-        // 彻底结束或初始化状态
         isRunning = false;
         isPausedForManual = false;
 
