@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         X批量取消非回关
+// @name         X批量取消非回关 (海王管理大师版)
 // @namespace    http://tampermonkey.net/
-// @version      3.4
+// @version      4.0
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -19,7 +19,7 @@
         scanInterval: 400,
         maxNoActionRetries: 6,
         maxUnfollowLimit: 80,
-        autoExecute: false // 🌟 修复：默认关闭自动取关，安全第一
+        autoExecute: false
     };
 
     let isRunning = false;
@@ -76,6 +76,33 @@
                 background-color: rgba(29, 155, 240, 0.1) !important;
                 transition: all 0.3s ease;
             }
+            /* 模式切换页签样式 */
+            .x-tab-container {
+                display: flex;
+                background: #111;
+                border-radius: 8px;
+                padding: 2px;
+                border: 1px solid #333;
+            }
+            .x-tab-btn {
+                flex: 1;
+                padding: 6px 0;
+                text-align: center;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: bold;
+                transition: all 0.2s ease;
+            }
+            .x-tab-active {
+                background: #1d9bf0;
+                color: #fff;
+            }
+            .x-tab-disabled {
+                color: #555;
+                cursor: not-allowed;
+                opacity: 0.5;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -111,6 +138,43 @@
         container.style.fontSize = '13px';
         container.style.width = '240px';
 
+        // 🌟 新增：顶部大标题与赛博功德箱（左右分栏结构）
+        const headerRow = document.createElement('div');
+        headerRow.style.display = 'flex';
+        headerRow.style.justifyContent = 'space-between';
+        headerRow.style.alignItems = 'center';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.innerText = '𝕏-海王管理大师';
+        titleSpan.style.fontWeight = 'bold';
+        titleSpan.style.fontSize = '14px';
+        titleSpan.style.color = '#1d9bf0';
+
+        const sponsorSpan = document.createElement('span');
+        sponsorSpan.className = 'x-helper-tooltip';
+        sponsorSpan.setAttribute('data-tip', '点击注入一丝免封玄学，赞助一两碎银，功德+1且有效降低风控概率（接口预留）');
+        sponsorSpan.innerText = '💸 功德箱';
+        sponsorSpan.style.fontSize = '11px';
+        sponsorSpan.style.color = '#e1a100';
+        sponsorSpan.style.cursor = 'pointer';
+        sponsorSpan.style.opacity = '0.8';
+        sponsorSpan.onmouseover = () => sponsorSpan.style.opacity = '1';
+        sponsorSpan.onmouseout = () => sponsorSpan.style.opacity = '0.8';
+        sponsorSpan.onclick = () => {
+            console.log('[海王管理大师] 赞助通道触发，期待后续打赏接入');
+        };
+
+        headerRow.appendChild(titleSpan);
+        headerRow.appendChild(sponsorSpan);
+        container.appendChild(headerRow);
+
+        const hrTop = document.createElement('hr');
+        hrTop.style.border = '0';
+        hrTop.style.borderTop = '1px solid #333';
+        hrTop.style.margin = '0';
+        container.appendChild(hrTop);
+
+        // --- 组件 1：取关间隔上限 ---
         const delayGroup = document.createElement('div');
         delayGroup.style.display = 'flex';
         delayGroup.style.flexDirection = 'column';
@@ -140,6 +204,7 @@
         delayGroup.appendChild(delayLabelContainer);
         delayGroup.appendChild(delaySlider);
 
+        // --- 组件 2：滚屏刷新速度 ---
         const speedGroup = document.createElement('div');
         speedGroup.style.display = 'flex';
         speedGroup.style.flexDirection = 'column';
@@ -170,6 +235,7 @@
         speedGroup.appendChild(speedLabelContainer);
         speedGroup.appendChild(speedSlider);
 
+        // --- 组件 3：安全阀门输入框 ---
         const limitGroup = document.createElement('div');
         limitGroup.style.display = 'flex';
         limitGroup.style.justifyContent = 'space-between';
@@ -195,6 +261,7 @@
         };
         limitGroup.appendChild(limitInput);
 
+        // --- 组件：自动执行开关 ---
         const autoExecGroup = document.createElement('div');
         autoExecGroup.style.display = 'flex';
         autoExecGroup.style.justifyContent = 'space-between';
@@ -214,13 +281,30 @@
         };
         autoExecGroup.appendChild(autoExecCheck);
 
+        // 🌟 新增：双向模式切换 Tab 栏（回关模式预留灰掉）
+        const modeTabContainer = document.createElement('div');
+        modeTabContainer.className = 'x-tab-container';
+
+        const purgeTab = document.createElement('div');
+        purgeTab.className = 'x-tab-btn x-tab-active';
+        purgeTab.innerText = '❌ 批量清粉';
+
+        const followTab = document.createElement('div');
+        followTab.className = 'x-tab-btn x-tab-disabled x-helper-tooltip';
+        followTab.setAttribute('data-tip', '🤝 自动回关模式正在高强度研发中，解放双手拒绝冷漠，敬请期待！');
+        followTab.innerText = '🤝 自动回关';
+
+        modeTabContainer.appendChild(purgeTab);
+        modeTabContainer.appendChild(followTab);
+
         const hr = document.createElement('hr');
         hr.style.border = '0';
         hr.style.borderTop = '1px solid #444';
         hr.style.margin = '2px 0';
 
+        // --- 组件 4：实时日志区 ---
         const logLabel = document.createElement('div');
-        logLabel.innerHTML = '<span>📋 日志:</span>';
+        logLabel.innerHTML = '<span>📋 运行日志:</span>';
         logLabel.style.fontSize = '12px';
         logLabel.style.color = '#aaa';
 
@@ -234,7 +318,7 @@
         logBox.style.fontSize = '11px';
         logBox.style.lineHeight = '1.5';
         logBox.style.color = '#00ff66';
-        logBox.innerHTML = '<div style="color:#888;">[就绪] 等待点击开始...</div>';
+        logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
 
         startManualBtn = document.createElement('button');
         startManualBtn.innerText = '▶️ 半自动';
@@ -263,7 +347,6 @@
 
         stopBtn.onclick = () => {
             if (isPausedForManual) {
-                // 🌟 选择结算时，结算上个锁定的账号并放行
                 checkAndRecordManualAction();
                 isPausedForManual = false;
                 isRunning = false;
@@ -279,6 +362,7 @@
         container.appendChild(speedGroup);
         container.appendChild(limitGroup);
         container.appendChild(autoExecGroup);
+        container.appendChild(modeTabContainer); // 塞入模式页签
         container.appendChild(hr);
         container.appendChild(logLabel);
         container.appendChild(logBox);
@@ -314,7 +398,6 @@
     function lockUI(mode, text) {
         isRunning = true;
 
-        // 🌟 修复核心：只要点了继续，先给上一个锁定的目标做结算并【强制放行】
         if (isPausedForManual) {
             checkAndRecordManualAction();
         }
@@ -343,7 +426,6 @@
         stopBtn.innerText = '🛑 停止清理';
     }
 
-    // 🌟 判定上一个人的状态，并将其强制归类为已处理，确保继续往下走
     function checkAndRecordManualAction() {
         if (!lastLockedHandle) return;
 
@@ -351,14 +433,11 @@
 
         if (lastLockedCell && document.body.contains(lastLockedCell)) {
             const followingBtn = lastLockedCell.querySelector('[data-testid$="-unfollow"]');
-            // 如果原本的取关按钮没了，说明用户手动点了取关
             if (!followingBtn) {
                 hasUnfollowed = true;
             }
-            // 取消高亮蓝框样式
             lastLockedCell.classList.remove('x-highlight-user');
         } else {
-            // DOM 消失，默认可能已被操作过
             hasUnfollowed = true;
         }
 
@@ -366,14 +445,11 @@
             unfollowedList.push(lastLockedHandle);
             addRealtimeLog(`[${unfollowedList.length}] 👤 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
         } else {
-            // 🌟 关键：用户没点取关直接点继续，则记为“跳过并保留”，这样他就留在了你的关注列表里
             addRealtimeLog(`[系统] 👤 手动介入: 保留并跳过账户 ${lastLockedHandle}`, '#aaa');
         }
 
-        // 🌟 【彻底放行】塞入已处理Set。这样下个循环核心引擎一检查，就会直接 continue 跳过他，不会卡死锁定！
         processedUsers.add(lastLockedHandle);
 
-        // 清空现场引用
         lastLockedHandle = null;
         lastLockedCell = null;
     }
@@ -415,7 +491,6 @@
                 const matchHandle = textContent.match(/@\w+/);
                 const userHandle = matchHandle ? matchHandle[0] : null;
 
-                // 🌟 这里会过滤掉已在 processedUsers 中的上个锁定账号，顺利走下去
                 if (!userHandle || processedUsers.has(userHandle)) {
                     continue;
                 }
