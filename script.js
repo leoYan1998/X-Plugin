@@ -787,14 +787,14 @@
         speedGroup.appendChild(speedLabelContainer); speedGroup.appendChild(speedSlider); container.appendChild(speedGroup);
 
         const limitInputGroup = document.createElement('div'); limitInputGroup.style.display = 'flex'; limitInputGroup.style.justifyContent = 'space-between'; limitInputGroup.style.alignItems = 'center';
-        const limitLabel = createLabelWithTooltip('🎯 本次处理上限', '强行防封熔断器。');
+        const limitLabel = createLabelWithTooltip('🎯 处理上限', '强行防封熔断器。');
         limitInput = document.createElement('input'); limitInput.type = 'number'; limitInput.className = 'x-input-style'; limitInput.value = CONFIG.maxUnfollowLimit.toString(); limitInput.style.width = '55px'; limitInput.style.borderRadius = '6px'; limitInput.style.color = '#fff'; limitInput.style.textAlign = 'center';
         limitInput.onchange = (e) => { let val = parseInt(e.target.value); CONFIG.maxUnfollowLimit = isNaN(val) || val <= 0 ? 1 : val; limitInput.value = CONFIG.maxUnfollowLimit; };
         limitInputGroup.appendChild(limitLabel); limitInputGroup.appendChild(limitInput); container.appendChild(limitInputGroup);
 
         const autoExecGroup = document.createElement('div'); autoExecGroup.style.display = 'flex'; autoExecGroup.style.justifyContent = 'space-between'; autoExecGroup.style.alignItems = 'center';
         const autoExecLabelContainer = document.createElement('div'); autoExecLabelContainer.style.display = 'flex'; autoExecLabelContainer.style.flexDirection = 'column';
-        const autoExecLabel = createLabelWithTooltip('⚡ 发现目标自动处理', '开启：自动点击取关。关闭：发现目标时锁定并等待人工处理。');
+        const autoExecLabel = createLabelWithTooltip('⚡ 自动处理', '开启：自动点击取关。关闭：发现目标时锁定并等待人工处理。');
         const subListBtn = document.createElement('span'); subListBtn.innerText = '[高级配置黑/白名单]'; subListBtn.style.fontSize = '11px'; subListBtn.style.color = '#a855f7'; subListBtn.style.cursor = 'pointer'; subListBtn.style.fontWeight = 'bold';
         subListBtn.onclick = createListModal;
         autoExecLabelContainer.appendChild(autoExecLabel); autoExecLabelContainer.appendChild(subListBtn);
