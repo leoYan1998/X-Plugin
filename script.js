@@ -770,7 +770,7 @@
 
         const delayGroup = document.createElement('div'); delayGroup.style.display = 'flex'; delayGroup.style.flexDirection = 'column'; delayGroup.style.gap = '4px';
         const delayLabelContainer = document.createElement('div'); delayLabelContainer.style.display = 'flex'; delayLabelContainer.style.justifyContent = 'space-between';
-        const delayLabel = createLabelWithTooltip('⏳ 取关间隔上限', '单次取关后的安全等待时间最大值。');
+        const delayLabel = createLabelWithTooltip('取关间隔上限', '单次取关后的安全等待时间最大值。');
         delayValLabel = document.createElement('span'); delayValLabel.innerText = `${CONFIG.maxDelay / 1000}秒`; delayValLabel.style.color = '#1d9bf0';
         delayLabelContainer.appendChild(delayLabel); delayLabelContainer.appendChild(delayValLabel);
         const delaySlider = document.createElement('input'); delaySlider.type = 'range'; delaySlider.min = '1'; delaySlider.max = '8'; delaySlider.value = (CONFIG.maxDelay / 1000).toString();
@@ -779,7 +779,7 @@
 
         const speedGroup = document.createElement('div'); speedGroup.style.display = 'flex'; speedGroup.style.flexDirection = 'column'; speedGroup.style.gap = '4px';
         const speedLabelContainer = document.createElement('div'); speedLabelContainer.style.display = 'flex'; speedLabelContainer.style.justifyContent = 'space-between';
-        const speedLabel = createLabelWithTooltip('🚀 滚屏刷新速度', '滚屏的停顿间隔。');
+        const speedLabel = createLabelWithTooltip('滚屏刷新速度', '滚屏的停顿间隔。');
         speedValLabel = document.createElement('span'); speedValLabel.innerText = `${CONFIG.scanInterval}ms`; speedValLabel.style.color = '#00ba7c';
         speedLabelContainer.appendChild(speedLabel); speedLabelContainer.appendChild(speedValLabel);
         const speedSlider = document.createElement('input'); speedSlider.type = 'range'; speedSlider.min = '0'; speedSlider.max = '2000'; speedSlider.step = '50'; speedSlider.value = CONFIG.scanInterval.toString();
@@ -787,14 +787,14 @@
         speedGroup.appendChild(speedLabelContainer); speedGroup.appendChild(speedSlider); container.appendChild(speedGroup);
 
         const limitInputGroup = document.createElement('div'); limitInputGroup.style.display = 'flex'; limitInputGroup.style.justifyContent = 'space-between'; limitInputGroup.style.alignItems = 'center';
-        const limitLabel = createLabelWithTooltip('🎯 处理上限', '强行防封熔断器。');
+        const limitLabel = createLabelWithTooltip('处理上限', '强行防封熔断器。');
         limitInput = document.createElement('input'); limitInput.type = 'number'; limitInput.className = 'x-input-style'; limitInput.value = CONFIG.maxUnfollowLimit.toString(); limitInput.style.width = '55px'; limitInput.style.borderRadius = '6px'; limitInput.style.color = '#fff'; limitInput.style.textAlign = 'center';
         limitInput.onchange = (e) => { let val = parseInt(e.target.value); CONFIG.maxUnfollowLimit = isNaN(val) || val <= 0 ? 1 : val; limitInput.value = CONFIG.maxUnfollowLimit; };
         limitInputGroup.appendChild(limitLabel); limitInputGroup.appendChild(limitInput); container.appendChild(limitInputGroup);
 
         const autoExecGroup = document.createElement('div'); autoExecGroup.style.display = 'flex'; autoExecGroup.style.justifyContent = 'space-between'; autoExecGroup.style.alignItems = 'center';
         const autoExecLabelContainer = document.createElement('div'); autoExecLabelContainer.style.display = 'flex'; autoExecLabelContainer.style.flexDirection = 'column';
-        const autoExecLabel = createLabelWithTooltip('⚡ 自动处理', '开启：自动点击取关。关闭：发现目标时锁定并等待人工处理。');
+        const autoExecLabel = createLabelWithTooltip('自动处理', '开启：自动点击取关。关闭：发现目标时锁定并等待人工处理。');
         const subListBtn = document.createElement('span'); subListBtn.innerText = '[高级配置黑/白名单]'; subListBtn.style.fontSize = '11px'; subListBtn.style.color = '#a855f7'; subListBtn.style.cursor = 'pointer'; subListBtn.style.fontWeight = 'bold';
         subListBtn.onclick = createListModal;
         autoExecLabelContainer.appendChild(autoExecLabel); autoExecLabelContainer.appendChild(subListBtn);
