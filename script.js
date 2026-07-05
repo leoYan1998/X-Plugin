@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      8.2
+// @version      8.3
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -204,6 +204,7 @@
             }
 
             .x-whitelist-quick-btn {
+
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -216,8 +217,9 @@
                 cursor: pointer;
                 transition: background-color 0.2s, border-color 0.2s;
                 user-select: none;
-                margin-right: 8px;
+
             }
+
             .x-whitelist-quick-btn.add {
                 background-color: transparent;
                 color: #a855f7;
@@ -619,7 +621,7 @@
     }
 
     function refreshAllQuickButtons() {
-        if (!isFollowingPage()) return; // 🌟 粉丝页直接拒绝执行
+        if (!isFollowingPage()) return;
         const userCells = document.querySelectorAll('[data-testid="UserCell"]');
         const currentWhitelist = getListArray('x_whitelist');
 
@@ -643,10 +645,13 @@
     }
 
     function injectQuickWhitelistButton(cell, userHandle) {
-        if (!isFollowingPage()) return; // 🌟 核心控制：不是关注列表页，绝对不注入任何快捷按钮
+        if (!isFollowingPage()) return;
         if (cell.querySelector('.x-whitelist-quick-btn')) return;
-        const actionContainer = cell.querySelector('[data-testid$="-unfollow"]')?.parentElement?.parentElement;
-        if (!actionContainer) return;
+
+        // 🎯 精准定位“正在关注 (Unfollow)”官方按钮
+        const unfollowBtn = cell.querySelector('[data-testid$="-unfollow"]');
+        if (!unfollowBtn) return;
+
 
         const qBtn = document.createElement('div');
         const currentWhitelist = getListArray('x_whitelist');
@@ -674,7 +679,9 @@
             }
             if (activeRefreshFunctions['x_whitelist']) activeRefreshFunctions['x_whitelist']();
         };
-        actionContainer.insertBefore(qBtn, actionContainer.firstChild);
+
+        // 🔗 插入到官方按钮的父级中，排在官方按钮前面（靠左并排显示）
+        unfollowBtn.parentElement.insertBefore(qBtn, unfollowBtn);
     }
 
     function createUI() {
@@ -771,7 +778,7 @@
         logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
         container.appendChild(logBox);
 
-        mainActionBtn = document.createElement('button'); mainActionBtn.innerText = '🚀 启动程序'; styleButton(mainActionBtn, '#00ba7c'); container.appendChild(mainActionBtn);
+        mainActionBtn = document.createElement('button');mainActionBtn.innerText = '🚀 启动程序'; styleButton(mainActionBtn, '#00ba7c'); container.appendChild(mainActionBtn);
         stopAndSettleBtn = document.createElement('button'); stopAndSettleBtn.innerText = '🏁 结束并结算'; styleButton(stopAndSettleBtn, '#ff6b00'); stopAndSettleBtn.style.display = 'none'; container.appendChild(stopAndSettleBtn);
 
         mainActionBtn.onclick = async () => {
@@ -805,7 +812,7 @@
 
     function startMutationObserver() {
         const observer = new MutationObserver(() => {
-            if (!isFollowingPage()) return; // 🌟 如果不是 Following 页面，观察器直接静默，不注入
+            if (!isFollowingPage()) return;
             const userCells = document.querySelectorAll('[data-testid="UserCell"]');
             userCells.forEach(cell => {
                 const textContent = cell.innerText || "";
@@ -818,7 +825,7 @@
     }
 
     function styleButton(btn, bgColor) {
-        btn.style.padding = '10px 15px'; btn.style.backgroundColor = bgColor; btn.style.color = '#fff'; btn.style.border = 'none'; btn.style.borderRadius = '20px'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold'; btn.style.width = '100%'; btn.style.transition = 'all 0.2s ease'; btn.style.marginBottom = '4px';
+        btn.style.padding = '10px 15px'; btn.style.backgroundColor = bgColor;btn.style.textAlign = 'center';btn.style.color = '#fff'; btn.style.border = 'none'; btn.style.borderRadius = '20px'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold'; btn.style.width = '100%'; btn.style.transition = 'all 0.2s ease'; btn.style.marginBottom = '4px';
         btn.onmouseover = () => { btn.style.opacity = '0.9'; btn.style.transform = 'scale(1.02)'; };
         btn.onmouseout = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1)'; };
     }
