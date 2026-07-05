@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         X批量取消非回关 
+// @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
 // @version      5.1
 // @author       Leo66
@@ -209,13 +209,32 @@
         titleSpan.style.color = '#1d9bf0';
         titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
 
-        const hideBtn = document.createElement('span');
-        hideBtn.innerText = '➖';
+        const hideBtn = document.createElement('div'); // 改为 div 以便更好地控制布局
         hideBtn.style.cursor = 'pointer';
-        hideBtn.style.fontSize = '12px';
-        hideBtn.style.opacity = '0.6';
-        hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
-        hideBtn.onmouseout = () => hideBtn.style.opacity = '0.6';
+        hideBtn.style.display = 'flex';
+        hideBtn.style.alignItems = 'center';
+        hideBtn.style.justifyContent = 'center';
+        hideBtn.style.width = '24px';  // 放大交互热区宽度
+        hideBtn.style.height = '24px'; // 放大交互热区高度
+        hideBtn.style.marginRight = '-4px'; // 修正热区带来的边距位移
+
+        // 内部真正显示的精致横线
+        const hideLine = document.createElement('span');
+        hideLine.style.width = '12px';
+        hideLine.style.height = '2.5px';
+        hideLine.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        hideLine.style.borderRadius = '2px';
+        hideLine.style.transition = 'background-color 0.2s, transform 0.2s';
+        hideBtn.appendChild(hideLine);
+
+        hideBtn.onmouseover = () => {
+            hideLine.style.backgroundColor = '#1d9bf0'; // 悬浮变蓝
+            hideLine.style.transform = 'scaleY(1.3)';   // 精致加粗
+        };
+        hideBtn.onmouseout = () => {
+            hideLine.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+            hideLine.style.transform = 'scaleY(1)';
+        };
 
         headerRow.appendChild(titleSpan);
         headerRow.appendChild(hideBtn);
