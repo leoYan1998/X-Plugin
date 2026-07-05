@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      8.3
+// @version      8.4
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -204,7 +204,6 @@
             }
 
             .x-whitelist-quick-btn {
-
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -217,7 +216,6 @@
                 cursor: pointer;
                 transition: background-color 0.2s, border-color 0.2s;
                 user-select: none;
-
             }
 
             .x-whitelist-quick-btn.add {
@@ -652,7 +650,6 @@
         const unfollowBtn = cell.querySelector('[data-testid$="-unfollow"]');
         if (!unfollowBtn) return;
 
-
         const qBtn = document.createElement('div');
         const currentWhitelist = getListArray('x_whitelist');
         if (currentWhitelist.includes(userHandle)) {
@@ -690,11 +687,26 @@
         container.className = 'x-aurora-panel';
 
         const miniBtn = document.createElement('div');
-        miniBtn.style.position = 'fixed'; miniBtn.style.top = '70px'; miniBtn.style.right = '20px'; miniBtn.style.zIndex = '9999';
-        miniBtn.style.display = 'none'; miniBtn.style.padding = '8px 14px'; miniBtn.style.borderRadius = '20px';
-        miniBtn.style.color = '#fff'; miniBtn.style.fontSize = '12px'; miniBtn.style.fontWeight = 'bold';
-        miniBtn.style.backgroundColor = 'rgba(15, 15, 15, 0.75)'; miniBtn.style.backdropFilter = 'blur(12px)';
-        miniBtn.style.border = '1px solid rgba(29, 155, 240, 0.4)'; miniBtn.innerHTML = '𝕏 海王大师 ➕';
+        miniBtn.style.position = 'fixed';
+        miniBtn.style.top = '70px';
+        miniBtn.style.right = '20px';
+        miniBtn.style.zIndex = '9999';
+        miniBtn.style.padding = '8px 14px';
+        miniBtn.style.borderRadius = '20px';
+        miniBtn.style.color = '#fff';
+        miniBtn.style.fontSize = '12px';
+        miniBtn.style.fontWeight = 'bold';
+        miniBtn.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
+        miniBtn.style.backdropFilter = 'blur(12px)';
+        miniBtn.style.border = '1px solid rgba(29, 155, 240, 0.4)';
+        miniBtn.innerHTML = '𝕏 海王大师 ➕';
+
+        // 🔒 强制让初始未点击的胶囊按钮自适应文本宽度，不被外部拉伸
+        miniBtn.style.width = 'max-content';
+        miniBtn.style.whiteSpace = 'nowrap';
+        miniBtn.style.boxSizing = 'border-box';
+        miniBtn.style.display = 'none';
+
         enableDrag(miniBtn, miniBtn);
 
         const headerRow = document.createElement('div');
@@ -825,7 +837,25 @@
     }
 
     function styleButton(btn, bgColor) {
-        btn.style.padding = '10px 15px'; btn.style.backgroundColor = bgColor;btn.style.textAlign = 'center';btn.style.color = '#fff'; btn.style.border = 'none'; btn.style.borderRadius = '20px'; btn.style.cursor = 'pointer'; btn.style.fontWeight = 'bold'; btn.style.width = '100%'; btn.style.transition = 'all 0.2s ease'; btn.style.marginBottom = '4px';
+        btn.style.padding = '10px 15px';
+        btn.style.backgroundColor = bgColor;
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '20px';
+        btn.style.cursor = 'pointer';
+        btn.style.fontWeight = 'bold';
+        btn.style.whiteSpace = 'nowrap';
+        btn.style.width = '100%';
+        btn.style.transition = 'all 0.2s ease';
+        btn.style.marginBottom = '4px';
+
+        // 🎯 锁定控制台内文本和 Emoji 水平垂直完美居中
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.gap = '6px';
+        btn.style.boxSizing = 'border-box';
+
         btn.onmouseover = () => { btn.style.opacity = '0.9'; btn.style.transform = 'scale(1.02)'; };
         btn.onmouseout = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1)'; };
     }
