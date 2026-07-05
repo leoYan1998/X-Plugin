@@ -34,7 +34,7 @@
     let lastLockedCell = null;
 
     let isModalOpen = false;
-    let wInputGlobal = null; // 用于同步快捷按钮到配置窗口的引用
+    let refreshWhitelistUI = null; // 用于同步快捷按钮到配置窗口的刷新函数引用
 
     function injectStyles() {
         const style = document.createElement('style');
@@ -234,8 +234,8 @@
     function updateWhitelistArray(arr) {
         const text = arr.join('\n');
         GM_setValue('x_whitelist', text);
-        if (wInputGlobal) {
-            wInputGlobal.value = text;
+        if (refreshWhitelistUI) {
+            refreshWhitelistUI();
         }
     }
 
@@ -293,6 +293,257 @@
         }
     }
 
+    function createListSection(win, labelText, tooltipText, storageKey, tagThemeColor, tagBorderColor) {
+        const label = createLabelWithTooltip(labelText, tooltipText);
+        label.style.fontSize = '12px';
+        label.style.color = '#ccc';
+        label.style.display = 'block';
+        win.appendChild(label);
+
+        let rawValue = GM_getValue(storageKey, '');
+        let items = rawValue.split(/[\n,]/).map(v => v.trim()).filter(v => v.startsWith('@'));
+        items = Array.from(new Set(items));
+
+        const saveItems = () => {
+            GM_setValue(storageKey, items.join('\n'));
+        };
+
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '8px';
+
+        const controlRow = document.createElement('div');
+        controlRow.style.display = 'flex';
+        controlRow.style.gap = '8px';
+        controlRow.style.alignItems = 'center';
+
+        const addInput = document.createElement('input');
+        addInput.type = 'text';
+        addInput.className = 'x-input-style';
+        addInput.placeholder = '➕ 输入并回车 (支持批量)';
+        addInput.style.flex = '1';
+        addInput.style.borderRadius = '6px';
+        addInput.style.color = '#fff';
+        addInput.style.padding = '6px 8px';
+        addInput.style.fontSize = '11px';
+        addInput.style.boxSizing = 'border-box';
+        addInput.style.height = '28px';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'x-input-style';
+        searchInput.placeholder = '🔍 搜索...';
+        searchInput.style.width = '80px';
+        searchInput.style.borderRadius = '6px';
+        searchInput.style.color = '#fff';
+        searchInput.style.padding = '6px 8px';
+        searchInput.style.fontSize = '11px';
+        searchInput.style.boxSizing = 'border-box';
+        searchInput.style.height = '28px';
+
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'x-input-style';
+        clearBtn.innerText = '🗑️';
+        clearBtn.title = '清空列表';
+        clearBtn.style.width = '28px';
+        clearBtn.style.height = '28px';
+        clearBtn.style.borderRadius = '6px';
+        clearBtn.style.color = '#fff';
+        clearBtn.style.border = 'none';
+        clearBtn.style.cursor = 'pointer';
+        clearBtn.style.fontSize = '12px';
+        clearBtn.style.display = 'flex';
+        clearBtn.style.alignItems = 'center';
+        clearBtn.style.justifyContent = 'center';
+        clearBtn.style.boxSizing = 'border-box';
+        clearBtn.style.padding = '0';
+        clearBtn.onmouseover = () => {
+            clearBtn.style.borderColor = 'rgba(255,255,255,0.3)';
+            clearBtn.style.background = 'rgba(255,255,255,0.12)';
+        };
+        clearBtn.onmouseout = () => {
+            clearBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+            clearBtn.style.background = 'rgba(255,255,255,0.08)';
+        };
+
+        let confirmClearMode = false;
+        let confirmTimeout = null;
+
+        clearBtn.onclick = () => {
+            if (items.length === 0) {
+                return;
+            }
+            if (!confirmClearMode) {
+                confirmClearMode = true;
+                clearBtn.innerText = '⚠️';
+                clearBtn.title = '再次点击以确认清空';
+                clearBtn.style.backgroundColor = 'rgba(244, 63, 94, 0.2)';
+                clearBtn.style.borderColor = '#f43f5e';
+
+                confirmTimeout = setTimeout(() => {
+                    confirmClearMode = false;
+                    clearBtn.innerText = '🗑️';
+                    clearBtn.title = '清空列表';
+                    clearBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                    clearBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                }, 3000);
+            } else {
+                clearTimeout(confirmTimeout);
+                confirmClearMode = false;
+                items = [];
+                saveItems();
+                refreshAllQuickButtons(); // 同步高亮变化
+                renderTags();
+                const listName = storageKey === 'x_whitelist' ? '白名单' : '黑名单';
+                addRealtimeLog(`[名单] ${listName}列表已清空`, '#aaa');
+
+                clearBtn.innerText = '🗑️';
+                clearBtn.title = '清空列表';
+                clearBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                clearBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            }
+        };
+
+        controlRow.appendChild(addInput);
+        controlRow.appendChild(searchInput);
+        controlRow.appendChild(clearBtn);
+        container.appendChild(controlRow);
+
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'x-input-style';
+        tagsContainer.style.width = '100%';
+        tagsContainer.style.height = '80px';
+        tagsContainer.style.borderRadius = '8px';
+        tagsContainer.style.padding = '6px';
+        tagsContainer.style.fontSize = '11px';
+        tagsContainer.style.boxSizing = 'border-box';
+        tagsContainer.style.overflowY = 'auto';
+        tagsContainer.style.display = 'flex';
+        tagsContainer.style.flexWrap = 'wrap';
+        tagsContainer.style.gap = '6px';
+        tagsContainer.style.alignContent = 'flex-start';
+
+        container.appendChild(tagsContainer);
+        win.appendChild(container);
+
+        const renderTags = () => {
+            tagsContainer.innerHTML = '';
+            const query = searchInput.value.trim().toLowerCase();
+            const filtered = items.filter(item => item.toLowerCase().includes(query));
+
+            if (filtered.length === 0) {
+                const emptyTip = document.createElement('div');
+                emptyTip.innerText = query ? '未找到匹配项' : '白名单为空';
+                emptyTip.style.color = '#555';
+                emptyTip.style.fontStyle = 'italic';
+                emptyTip.style.width = '100%';
+                emptyTip.style.padding = '4px 6px';
+                tagsContainer.appendChild(emptyTip);
+                return;
+            }
+
+            filtered.forEach(username => {
+                const chip = document.createElement('span');
+                chip.style.display = 'inline-flex';
+                chip.style.alignItems = 'center';
+                chip.style.gap = '4px';
+                chip.style.padding = '2px 8px';
+                chip.style.borderRadius = '12px';
+                chip.style.fontSize = '11px';
+                chip.style.backgroundColor = tagThemeColor;
+                chip.style.border = `1px solid ${tagBorderColor}`;
+                chip.style.color = '#fff';
+                chip.style.whiteSpace = 'nowrap';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.innerText = username;
+                chip.appendChild(nameSpan);
+
+                const deleteBtn = document.createElement('span');
+                deleteBtn.innerText = '×';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.fontWeight = 'bold';
+                deleteBtn.style.fontSize = '14px';
+                deleteBtn.style.lineHeight = '1';
+                deleteBtn.style.color = 'rgba(255,255,255,0.6)';
+                deleteBtn.style.transition = 'color 0.2s';
+                deleteBtn.onmouseover = () => deleteBtn.style.color = '#ff4d4f';
+                deleteBtn.onmouseout = () => deleteBtn.style.color = 'rgba(255,255,255,0.6)';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    items = items.filter(v => v !== username);
+                    saveItems();
+                    refreshAllQuickButtons(); // 同步高亮变化
+                    const listName = storageKey === 'x_whitelist' ? '白名单' : '黑名单';
+                    addRealtimeLog(`[名单] ${username} 已移出${listName}`, '#aaa');
+                    renderTags();
+                };
+                chip.appendChild(deleteBtn);
+
+                tagsContainer.appendChild(chip);
+            });
+        };
+
+        const handleAdd = () => {
+            const val = addInput.value;
+            if (!val) return;
+
+            const rawParts = val.split(/[\n,\s]+/);
+            let addedCount = 0;
+            const newAddedItems = [];
+
+            rawParts.forEach(p => {
+                let part = p.trim();
+                if (!part) return;
+                if (!part.startsWith('@')) {
+                    part = '@' + part;
+                }
+                if (part.length > 1) {
+                    if (!items.includes(part)) {
+                        items.push(part);
+                        newAddedItems.push(part);
+                        addedCount++;
+                    }
+                }
+            });
+
+            if (addedCount > 0) {
+                saveItems();
+                refreshAllQuickButtons(); // 同步高亮变化
+                const listName = storageKey === 'x_whitelist' ? '白名单' : '黑名单';
+                newAddedItems.forEach(item => {
+                    addRealtimeLog(`[名单] ${item} 已加入${listName}`, '#a855f7');
+                });
+                addInput.value = '';
+                renderTags();
+            }
+        };
+
+        addInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                handleAdd();
+            }
+        };
+        addInput.onblur = () => {
+            handleAdd();
+        };
+
+        searchInput.oninput = () => {
+            renderTags();
+        };
+
+        // 注册刷新函数
+        activeRefreshFunctions = () => {
+            rawValue = GM_getValue(storageKey, '');
+            items = rawValue.split(/[\n,]/).map(v => v.trim()).filter(v => v.startsWith('@'));
+            items = Array.from(new Set(items));
+            renderTags();
+        };
+
+        renderTags();
+    }
+
     function createListModal() {
         let mask = document.querySelector('.x-modal-mask');
         if (mask) {
@@ -344,9 +595,10 @@
 
         enableDrag(title, win);
 
+        // 1. 黑名单 (保留原样)
         const bLabel = createLabelWithTooltip('💀 黑名单 (暂未实装/结合自动回关使用)', '研发中：自动回关功能研发成功后，永远不会给这里面的人回关（防老赖）。');
         bLabel.style.fontSize = '12px';
-        bLabel.style.color = '#555'; // 置灰样式
+        bLabel.style.color = '#555';
         const bInput = document.createElement('textarea');
         bInput.className = 'x-input-style';
         bInput.style.width = '100%'; bInput.style.height = '60px'; bInput.style.borderRadius = '8px';
@@ -354,24 +606,18 @@
         bInput.style.resize = 'none'; bInput.style.boxSizing = 'border-box'; bInput.disabled = true;
         bInput.placeholder = '功能暂未开放...';
 
-        const wLabel = createLabelWithTooltip('🛡️ 白名单 (@用户ID，支持逗号或换行分隔)', '批量清粉时，即使对方没有回关你，也绝对不会取关他们。');
-        wLabel.style.fontSize = '12px';
-        wLabel.style.color = '#ccc';
-
-        const wInput = document.createElement('textarea');
-        wInput.className = 'x-input-style';
-        wInput.style.width = '100%'; wInput.style.height = '100px'; wInput.style.borderRadius = '8px';
-        wInput.style.color = '#fff'; wInput.style.padding = '8px'; wInput.style.fontSize = '12px';
-        wInput.style.resize = 'none'; wInput.style.boxSizing = 'border-box';
-        wInput.placeholder = '例如:\n@vip1\n@vip2';
-        wInput.value = GM_getValue('x_whitelist', '');
-
-        wInputGlobal = wInput; // 全局映射
-
         win.appendChild(bLabel);
         win.appendChild(bInput);
-        win.appendChild(wLabel);
-        win.appendChild(wInput);
+
+        // 2. 白名单 (更新为 Chips + Search)
+        createListSection(win, '🛡️ 白名单 (@用户ID，支持逗号或换行分隔)', '批量清粉时，即使对方没有回关你，也绝对不会取关他们。', 'x_whitelist', 'rgba(29, 155, 240, 0.15)', 'rgba(29, 155, 240, 0.4)');
+
+        // 绑定刷新映射关系
+        refreshWhitelistUI = () => {
+            if (activeRefreshFunctions) {
+                activeRefreshFunctions();
+            }
+        };
 
         const tip = document.createElement('div');
         tip.innerText = '💡 修改将实时写入缓存。点击右上角横杠最小化窗口。';
@@ -381,16 +627,11 @@
         mask.appendChild(win);
         document.body.appendChild(mask);
 
-        // 绑定输入框变化事件
-        wInput.oninput = (e) => {
-            GM_setValue('x_whitelist', e.target.value);
-            refreshAllQuickButtons(); // 实时高亮变化
-        };
-
         const destroyModal = () => {
-            GM_setValue('x_whitelist', wInput.value);
             isModalOpen = false;
             mask.classList.remove('active');
+            refreshWhitelistUI = null;
+            activeRefreshFunctions = null;
         };
 
         closeBtn.onclick = destroyModal;
@@ -455,14 +696,14 @@
                 updateWhitelistArray(activeList);
                 qBtn.className = 'x-whitelist-quick-btn add';
                 qBtn.innerText = '➕ 白名单';
-                addRealtimeLog(`[名单] 已将 ${userHandle} 移出白名单`, '#aaa');
+                addRealtimeLog(`[名单] ${userHandle} 已移出白名单`, '#aaa');
             } else {
                 // 添加白名单
                 activeList.push(userHandle);
                 updateWhitelistArray(activeList);
                 qBtn.className = 'x-whitelist-quick-btn remove';
                 qBtn.innerText = '🛡️ 已加白';
-                addRealtimeLog(`[名单] 快捷添加白名单成功: ${userHandle}`, '#a855f7');
+                addRealtimeLog(`[名单] ${userHandle} 已加入白名单`, '#a855f7');
             }
         };
 
