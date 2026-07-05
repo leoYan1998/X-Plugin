@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         X批量取消非回关
+// @name         X批量取消非回关 (定制版)
 // @namespace    http://tampermonkey.net/
-// @version      8.4
-// @author       Leo66
+// @version      8.7
+// @author       Leo66 & Gemini
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
 // @match        https://x.com/*/followers
@@ -40,9 +40,9 @@
     let isModalOpen = false;
     let activeRefreshFunctions = {};
 
-    // 检查当前 URL 是否为正在关注列表页
+    // 🎯 严格判定：只有当前 URL 为指定的 LeoYan98 正在关注列表页时才返回 true
     function isFollowingPage() {
-        return /\/(following)$/i.test(window.location.pathname);
+        return window.location.origin === 'https://x.com' && window.location.pathname.toLowerCase() === '/leoyan98/following';
     }
 
     function injectStyles() {
@@ -203,8 +203,9 @@
                 outline: none;
             }
 
+            /* 🎯 增强稳定性样式，提高 z-index 确保永远立于点击图层的最上层 */
             .x-whitelist-quick-btn {
-                display: inline-flex;
+                display: inline-flex !important;
                 align-items: center;
                 justify-content: center;
                 padding: 0 12px;
@@ -213,9 +214,12 @@
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 14px;
                 font-weight: 700;
-                cursor: pointer;
+                cursor: pointer !important;
                 transition: background-color 0.2s, border-color 0.2s;
                 user-select: none;
+                position: relative;
+                z-index: 50;
+                pointer-events: auto !important;
             }
 
             .x-whitelist-quick-btn.add {
@@ -588,7 +592,7 @@
         win.appendChild(subTabContainer);
 
         const whiteSection = createListSection(win, '🛡️ 白名单 (执行批量取关时绝对不切断的用户)', '即使对方没有回关你，系统也会强制跳过，保留关注。', 'x_whitelist', 'rgba(29, 155, 240, 0.15)', 'rgba(29, 155, 240, 0.4)');
-        const blackSection = createListSection(win, '💀 黑名单 (执行期间取关账户将自动同步于此)', '记录曾经被你淘汰移除的人。未来如果上线[自动关注/回关]功能，系统将自动拉黑拒绝这些人。', 'x_blacklist', 'rgba(239, 68, 68, 0.15)', 'rgba(239, 68, 68, 0.4)');
+        const blackSection = createListSection(win, '💀 黑名单 (执行期间取关账户将自动同步于此)', '记录曾经被你淘汰移除的人。', 'x_blacklist', 'rgba(239, 68, 68, 0.15)', 'rgba(239, 68, 68, 0.4)');
 
         blackSection.style.display = 'none';
 
@@ -619,7 +623,10 @@
     }
 
     function refreshAllQuickButtons() {
-        if (!isFollowingPage()) return;
+        if (!isFollowingPage()) {
+            document.querySelectorAll('.x-whitelist-quick-btn').forEach(btn => btn.remove());
+            return;
+        }
         const userCells = document.querySelectorAll('[data-testid="UserCell"]');
         const currentWhitelist = getListArray('x_whitelist');
 
@@ -642,13 +649,23 @@
         });
     }
 
+    // 🎯 精准修改：修复下拉复用引起的无法选中/交互失效缺陷
     function injectQuickWhitelistButton(cell, userHandle) {
         if (!isFollowingPage()) return;
         if (cell.querySelector('.x-whitelist-quick-btn')) return;
 
-        // 🎯 精准定位“正在关注 (Unfollow)”官方按钮
         const unfollowBtn = cell.querySelector('[data-testid$="-unfollow"]');
         if (!unfollowBtn) return;
+
+        const parentDiv = unfollowBtn.parentElement;
+        if (!parentDiv) return;
+
+        // 🛡️ 每次复用时，只在样式不对时刷新，降低高频滚动引起的性能抖动
+        if (parentDiv.style.display !== 'flex') {
+            parentDiv.style.display = 'flex';
+            parentDiv.style.flexDirection = 'row';
+            parentDiv.style.alignItems = 'center';
+        }
 
         const qBtn = document.createElement('div');
         const currentWhitelist = getListArray('x_whitelist');
@@ -660,8 +677,14 @@
             qBtn.innerText = '➕ 白名单';
         }
 
-        qBtn.onclick = (e) => {
-            e.stopPropagation(); e.preventDefault();
+        qBtn.style.marginRight = '8px';
+        qBtn.style.display = 'inline-flex';
+
+        // 🛠️ 核心交互修复：通过显式注册完整的 MouseDown、Click 阻止链，彻底切断 X 原生列表的长按和点击复用拦截
+        const handleButtonClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
             let activeList = getListArray('x_whitelist');
             if (activeList.includes(userHandle)) {
                 activeList = activeList.filter(item => item !== userHandle);
@@ -677,8 +700,10 @@
             if (activeRefreshFunctions['x_whitelist']) activeRefreshFunctions['x_whitelist']();
         };
 
-        // 🔗 插入到官方按钮的父级中，排在官方按钮前面（靠左并排显示）
-        unfollowBtn.parentElement.insertBefore(qBtn, unfollowBtn);
+        qBtn.addEventListener('click', handleButtonClick, true);
+        qBtn.addEventListener('mousedown', (e) => e.stopPropagation(), true);
+
+        unfollowBtn.insertAdjacentElement('beforebegin', qBtn);
     }
 
     function createUI() {
@@ -700,8 +725,6 @@
         miniBtn.style.backdropFilter = 'blur(12px)';
         miniBtn.style.border = '1px solid rgba(29, 155, 240, 0.4)';
         miniBtn.innerHTML = '𝕏 海王大师 ➕';
-
-        // 🔒 强制让初始未点击的胶囊按钮自适应文本宽度，不被外部拉伸
         miniBtn.style.width = 'max-content';
         miniBtn.style.whiteSpace = 'nowrap';
         miniBtn.style.boxSizing = 'border-box';
@@ -795,7 +818,7 @@
 
         mainActionBtn.onclick = async () => {
             if (!isFollowingPage()) {
-                addRealtimeLog(`[提示] 请先切换至你的 [正在关注 (Following)] 页面再启动清理逻辑`, '#ffaa00');
+                addRealtimeLog(`[提示] 请先切换至你的指定 [正在关注] 页面再启动清理逻辑`, '#ffaa00');
                 return;
             }
             if (!isRunning && !isPausedForManual) {
@@ -824,7 +847,10 @@
 
     function startMutationObserver() {
         const observer = new MutationObserver(() => {
-            if (!isFollowingPage()) return;
+            if (!isFollowingPage()) {
+                document.querySelectorAll('.x-whitelist-quick-btn').forEach(btn => btn.remove());
+                return;
+            }
             const userCells = document.querySelectorAll('[data-testid="UserCell"]');
             userCells.forEach(cell => {
                 const textContent = cell.innerText || "";
@@ -849,7 +875,6 @@
         btn.style.transition = 'all 0.2s ease';
         btn.style.marginBottom = '4px';
 
-        // 🎯 锁定控制台内文本和 Emoji 水平垂直完美居中
         btn.style.display = 'flex';
         btn.style.alignItems = 'center';
         btn.style.justifyContent = 'center';
