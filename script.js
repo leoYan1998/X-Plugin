@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      6.0
+// @version      7.0
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -34,6 +34,7 @@
     let lastLockedCell = null;
 
     let isModalOpen = false;
+    let wInputGlobal = null; // 用于同步快捷按钮到配置窗口的引用
 
     function injectStyles() {
         const style = document.createElement('style');
@@ -185,8 +186,57 @@
                 background: rgba(255, 255, 255, 0.12) !important;
                 outline: none;
             }
+
+            /* 🌟 快捷白名单按钮的基础原生样式匹配 */
+            .x-whitelist-quick-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 12px;
+                height: 32px;
+                border-radius: 9999px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: background-color 0.2s, border-color 0.2s;
+                user-select: none;
+                margin-right: 8px;
+            }
+            .x-whitelist-quick-btn.add {
+                background-color: transparent;
+                color: #a855f7;
+                border: 1px solid rgba(168, 85, 247, 0.5);
+            }
+            .x-whitelist-quick-btn.add:hover {
+                background-color: rgba(168, 85, 247, 0.1);
+                border-color: #a855f7;
+            }
+            .x-whitelist-quick-btn.remove {
+                background-color: #a855f7;
+                color: #fff;
+                border: 1px solid transparent;
+            }
+            .x-whitelist-quick-btn.remove:hover {
+                background-color: #9333ea;
+            }
         `;
         document.head.appendChild(style);
+    }
+
+    // 获取当前有效的白名单数组
+    function getWhitelistArray() {
+        const whitelistRaw = GM_getValue('x_whitelist', '');
+        return whitelistRaw.split(/[\n,]/).map(v => v.trim()).filter(v => v.startsWith('@'));
+    }
+
+    // 更新白名单存储数据
+    function updateWhitelistArray(arr) {
+        const text = arr.join('\n');
+        GM_setValue('x_whitelist', text);
+        if (wInputGlobal) {
+            wInputGlobal.value = text;
+        }
     }
 
     function createLabelWithTooltip(labelText, tooltipText) {
@@ -237,7 +287,6 @@
         function closeDragElement() {
             document.onmouseup = null;
             document.onmousemove = null;
-            // 🌟 返回拖动状态，让点击事件可以判断是拖拽还是纯点击
             if (targetEl.setAttribute) {
                 targetEl.setAttribute('data-dragged', isDragging ? 'true' : 'false');
             }
@@ -295,27 +344,29 @@
 
         enableDrag(title, win);
 
-        const bLabel = createLabelWithTooltip('💀 黑名单 (@用户ID，支持逗号或换行分隔)', '自动回关功能研发成功后，永远不会给这里面的人回关（防老赖）。');
+        const bLabel = createLabelWithTooltip('💀 黑名单 (暂未实装/结合自动回关使用)', '研发中：自动回关功能研发成功后，永远不会给这里面的人回关（防老赖）。');
         bLabel.style.fontSize = '12px';
-        bLabel.style.color = '#ccc';
+        bLabel.style.color = '#555'; // 置灰样式
         const bInput = document.createElement('textarea');
         bInput.className = 'x-input-style';
-        bInput.style.width = '100%'; bInput.style.height = '80px'; bInput.style.borderRadius = '8px';
-        bInput.style.color = '#fff'; bInput.style.padding = '8px'; bInput.style.fontSize = '12px';
-        bInput.style.resize = 'none'; bInput.style.boxSizing = 'border-box';
-        bInput.placeholder = '例如:\n@idiot1, @idiot2\n@idiot3';
-        bInput.value = GM_getValue('x_blacklist', '');
+        bInput.style.width = '100%'; bInput.style.height = '60px'; bInput.style.borderRadius = '8px';
+        bInput.style.color = '#666'; bInput.style.padding = '8px'; bInput.style.fontSize = '12px';
+        bInput.style.resize = 'none'; bInput.style.boxSizing = 'border-box'; bInput.disabled = true;
+        bInput.placeholder = '功能暂未开放...';
 
         const wLabel = createLabelWithTooltip('🛡️ 白名单 (@用户ID，支持逗号或换行分隔)', '批量清粉时，即使对方没有回关你，也绝对不会取关他们。');
         wLabel.style.fontSize = '12px';
         wLabel.style.color = '#ccc';
+
         const wInput = document.createElement('textarea');
         wInput.className = 'x-input-style';
-        wInput.style.width = '100%'; wInput.style.height = '80px'; wInput.style.borderRadius = '8px';
+        wInput.style.width = '100%'; wInput.style.height = '100px'; wInput.style.borderRadius = '8px';
         wInput.style.color = '#fff'; wInput.style.padding = '8px'; wInput.style.fontSize = '12px';
         wInput.style.resize = 'none'; wInput.style.boxSizing = 'border-box';
-        wInput.placeholder = '例如:\n@vip1, @vip2\n@vip3';
+        wInput.placeholder = '例如:\n@vip1\n@vip2';
         wInput.value = GM_getValue('x_whitelist', '');
+
+        wInputGlobal = wInput; // 全局映射
 
         win.appendChild(bLabel);
         win.appendChild(bInput);
@@ -323,15 +374,20 @@
         win.appendChild(wInput);
 
         const tip = document.createElement('div');
-        tip.innerText = '💡 支持实时输入。确认无误后，点击右上角横杠保存并退出。';
+        tip.innerText = '💡 修改将实时写入缓存。点击右上角横杠最小化窗口。';
         tip.style.fontSize = '11px'; tip.style.color = '#666'; tip.style.textAlign = 'center';
         win.appendChild(tip);
 
         mask.appendChild(win);
         document.body.appendChild(mask);
 
+        // 绑定输入框变化事件
+        wInput.oninput = (e) => {
+            GM_setValue('x_whitelist', e.target.value);
+            refreshAllQuickButtons(); // 实时高亮变化
+        };
+
         const destroyModal = () => {
-            GM_setValue('x_blacklist', bInput.value);
             GM_setValue('x_whitelist', wInput.value);
             isModalOpen = false;
             mask.classList.remove('active');
@@ -340,6 +396,78 @@
         closeBtn.onclick = destroyModal;
 
         setTimeout(() => mask.classList.add('active'), 10);
+    }
+
+    // 🌟 新增：独立刷新当前视口内所有快捷白名单按钮的状态
+    function refreshAllQuickButtons() {
+        const userCells = document.querySelectorAll('[data-testid="UserCell"]');
+        const currentWhitelist = getWhitelistArray();
+
+        userCells.forEach(cell => {
+            const textContent = cell.innerText || "";
+            const matchHandle = textContent.match(/@\w+/);
+            const userHandle = matchHandle ? matchHandle[0] : null;
+
+            if (!userHandle) return;
+
+            const qBtn = cell.querySelector('.x-whitelist-quick-btn');
+            if (qBtn) {
+                const isSaved = currentWhitelist.includes(userHandle);
+                if (isSaved) {
+                    qBtn.className = 'x-whitelist-quick-btn remove';
+                    qBtn.innerText = '🛡️ 已加白';
+                } else {
+                    qBtn.className = 'x-whitelist-quick-btn add';
+                    qBtn.innerText = '➕ 白名单';
+                }
+            }
+        });
+    }
+
+    // 🌟 新增：注入白名单快捷操作按键的核心拦截逻辑
+    function injectQuickWhitelistButton(cell, userHandle) {
+        if (cell.querySelector('.x-whitelist-quick-btn')) return;
+
+        // 定位𝕏原生的“Following”动作按钮所在的外部容器
+        const actionContainer = cell.querySelector('[data-testid$="-unfollow"]')?.parentElement?.parentElement;
+        if (!actionContainer) return;
+
+        const qBtn = document.createElement('div');
+        const currentWhitelist = getWhitelistArray();
+        const isSaved = currentWhitelist.includes(userHandle);
+
+        if (isSaved) {
+            qBtn.className = 'x-whitelist-quick-btn remove';
+            qBtn.innerText = '🛡️ 已加白';
+        } else {
+            qBtn.className = 'x-whitelist-quick-btn add';
+            qBtn.innerText = '➕ 白名单';
+        }
+
+        qBtn.onclick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            let activeList = getWhitelistArray();
+            if (activeList.includes(userHandle)) {
+                // 取消白名单
+                activeList = activeList.filter(item => item !== userHandle);
+                updateWhitelistArray(activeList);
+                qBtn.className = 'x-whitelist-quick-btn add';
+                qBtn.innerText = '➕ 白名单';
+                addRealtimeLog(`[名单] 已将 ${userHandle} 移出白名单`, '#aaa');
+            } else {
+                // 添加白名单
+                activeList.push(userHandle);
+                updateWhitelistArray(activeList);
+                qBtn.className = 'x-whitelist-quick-btn remove';
+                qBtn.innerText = '🛡️ 已加白';
+                addRealtimeLog(`[名单] 快捷添加白名单成功: ${userHandle}`, '#a855f7');
+            }
+        };
+
+        // 塞入原生按钮左侧
+        actionContainer.insertBefore(qBtn, actionContainer.firstChild);
     }
 
     function createUI() {
@@ -371,7 +499,6 @@
         miniBtn.onmouseover = () => { miniBtn.style.opacity = '0.95'; };
         miniBtn.onmouseout = () => { miniBtn.style.opacity = '1'; };
 
-        // 🌟 新增：使最小化胶囊也支持拖拽
         enableDrag(miniBtn, miniBtn);
 
         const headerRow = document.createElement('div');
@@ -420,7 +547,6 @@
 
         enableDrag(titleSpan, container);
 
-        // 🌟 修改：主面板最小化时，不仅同步隐藏子面板，还要将当前的 top/left 同步给胶囊
         hideBtn.onclick = () => {
             container.style.opacity = '0';
             container.style.transform = 'scale(0.9)';
@@ -430,7 +556,6 @@
                 mask.classList.remove('active');
             }
 
-            // 动态同步位置到胶囊
             miniBtn.style.top = container.style.top || (container.offsetTop + 'px');
             miniBtn.style.left = container.style.left || (container.offsetLeft + 'px');
             miniBtn.style.right = 'auto';
@@ -442,16 +567,14 @@
             }, 200);
         };
 
-        // 🌟 修改：胶囊被点击展开时，判断是拖拽还是纯点击。如果是点击，则将胶囊的位置同步回主面板
         miniBtn.onclick = () => {
             if (miniBtn.getAttribute('data-dragged') === 'true') {
-                return; // 如果刚才是在拖拽，则不触发还原
+                return;
             }
 
             miniBtn.style.display = 'none';
             container.style.display = 'flex';
 
-            // 动态同步位置回主面板
             container.style.top = miniBtn.style.top || (miniBtn.offsetTop + 'px');
             container.style.left = miniBtn.style.left || (miniBtn.offsetLeft + 'px');
             container.style.right = 'auto';
@@ -654,7 +777,7 @@
         footerRow.style.color = '#666';
 
         const versionSpan = document.createElement('span');
-        versionSpan.innerText = 'v6.0';
+        versionSpan.innerText = 'v7.0';
 
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
@@ -710,6 +833,25 @@
 
         document.body.appendChild(container);
         document.body.appendChild(miniBtn);
+
+        // 🌟 开启常驻后台观察者：用于动态给页面中滑动出现的元素注入快捷白名单按钮
+        startMutationObserver();
+    }
+
+    // 🌟 新增：DOM观察者，时刻监听页面滚动，为新出现的 UserCell 插入按钮
+    function startMutationObserver() {
+        const observer = new MutationObserver(() => {
+            const userCells = document.querySelectorAll('[data-testid="UserCell"]');
+            userCells.forEach(cell => {
+                const textContent = cell.innerText || "";
+                const matchHandle = textContent.match(/@\w+/);
+                const userHandle = matchHandle ? matchHandle[0] : null;
+                if (userHandle) {
+                    injectQuickWhitelistButton(cell, userHandle);
+                }
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     function styleButton(btn, bgColor) {
@@ -838,11 +980,11 @@
                     continue;
                 }
 
-                const whitelistRaw = GM_getValue('x_whitelist', '');
-                const whitelistArr = whitelistRaw.split(/[\n,]/).map(v => v.trim()).filter(v => v.startsWith('@'));
-                if (whitelistArr.includes(userHandle)) {
+                // 🌟 修改：扫描过滤时读取最新的动态白名单，匹配直接拦截跳过
+                const currentWhitelist = getWhitelistArray();
+                if (currentWhitelist.includes(userHandle)) {
                     processedUsers.add(userHandle);
-                    addRealtimeLog(`🛡️ [白名单保护] 自动跳过重要账户: ${userHandle}`, '#a855f7');
+                    addRealtimeLog(`🛡️ [白名单跳过] 自动跳过重要账户: ${userHandle}`, '#a855f7');
                     continue;
                 }
 
