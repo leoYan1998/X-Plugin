@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X批量取消非回关
 // @namespace    http://tampermonkey.net/
-// @version      5.1
+// @version      6.0
 // @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
@@ -33,10 +33,11 @@
     let lastLockedHandle = null;
     let lastLockedCell = null;
 
+    let isModalOpen = false;
+
     function injectStyles() {
         const style = document.createElement('style');
         style.innerHTML = `
-            /* 🌈 极光流变核心动画 */
             @keyframes aurora-flow {
                 0% { background-position: 0% 50%; }
                 50% { background-position: 100% 50%; }
@@ -50,16 +51,15 @@
                 z-index: 9999;
                 display: flex;
                 flex-direction: column;
-                gap: 12px;
+                gap: 10px;
                 width: 240px;
-                padding: 16px;
+                padding: 14px;
                 border-radius: 16px;
                 color: #fff;
                 font-family: monospace, sans-serif;
                 font-size: 13px;
                 transition: opacity 0.2s, transform 0.2s;
 
-                /* 🎨 双层背景裁切：完美解决 border-image 破坏圆角的问题 */
                 border: 1.5px solid transparent;
                 background-image: linear-gradient(rgba(15, 15, 15, 0.75), rgba(15, 15, 15, 0.75)),
                                   linear-gradient(135deg, #1d9bf0, #a855f7, #00ba7c, #1d9bf0);
@@ -72,6 +72,40 @@
                 -webkit-backdrop-filter: blur(12px);
                 box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             }
+
+            .x-modal-mask {
+                position: fixed;
+                top: 0; left: 0; width: 0; height: 0;
+                background: transparent;
+                z-index: 10000;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.25s ease;
+            }
+            .x-modal-window {
+                position: fixed;
+                top: 120px;
+                left: calc(50vw - 180px);
+                width: 360px;
+                padding: 20px;
+                border-radius: 16px;
+                color: #fff;
+                font-family: monospace, sans-serif;
+                background-image: linear-gradient(rgba(20, 20, 20, 0.95), rgba(20, 20, 20, 0.95)),
+                                  linear-gradient(135deg, #a855f7, #1d9bf0);
+                background-origin: border-box;
+                background-clip: padding-box, border-box;
+                border: 1.5px solid transparent;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+                transform: scale(0.9);
+                transition: transform 0.25s ease;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                pointer-events: auto;
+            }
+            .x-modal-mask.active { opacity: 1; }
+            .x-modal-mask.active .x-modal-window { transform: scale(1); }
 
             .x-helper-tooltip {
                 position: relative;
@@ -102,7 +136,7 @@
                 pointer-events: none;
                 transition: opacity 0.15s ease, transform 0.15s ease;
                 transform: translateX(-50%) translateY(4px);
-                z-index: 10000;
+                z-index: 10001;
                 font-family: sans-serif;
             }
             .x-helper-tooltip:hover::after {
@@ -123,7 +157,7 @@
             }
             .x-tab-btn {
                 flex: 1;
-                padding: 6px 0;
+                padding: 5px 0;
                 text-align: center;
                 border-radius: 6px;
                 cursor: pointer;
@@ -158,12 +192,154 @@
     function createLabelWithTooltip(labelText, tooltipText) {
         const container = document.createElement('span');
         container.innerText = labelText;
-        const qMark = document.createElement('span');
-        qMark.className = 'x-helper-tooltip';
-        qMark.setAttribute('data-tip', tooltipText);
-        qMark.innerText = '❓';
-        container.appendChild(qMark);
+        if (tooltipText) {
+            const qMark = document.createElement('span');
+            qMark.className = 'x-helper-tooltip';
+            qMark.setAttribute('data-tip', tooltipText);
+            qMark.innerText = '❓';
+            container.appendChild(qMark);
+        }
         return container;
+    }
+
+    function enableDrag(dragEl, targetEl) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        let isDragging = false;
+
+        dragEl.style.cursor = 'move';
+        dragEl.style.userSelect = 'none';
+        dragEl.onmousedown = dragMouseDown;
+
+        function dragMouseDown(e) {
+            e.preventDefault();
+            isDragging = false;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e.preventDefault();
+            if (Math.abs(e.clientX - pos3) > 2 || Math.abs(e.clientY - pos4) > 2) {
+                isDragging = true;
+            }
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            targetEl.style.top = (targetEl.offsetTop - pos2) + "px";
+            targetEl.style.left = (targetEl.offsetLeft - pos1) + "px";
+            targetEl.style.right = 'auto';
+            targetEl.style.bottom = 'auto';
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+            // 🌟 返回拖动状态，让点击事件可以判断是拖拽还是纯点击
+            if (targetEl.setAttribute) {
+                targetEl.setAttribute('data-dragged', isDragging ? 'true' : 'false');
+            }
+        }
+    }
+
+    function createListModal() {
+        let mask = document.querySelector('.x-modal-mask');
+        if (mask) {
+            isModalOpen = true;
+            mask.classList.add('active');
+            return;
+        }
+
+        isModalOpen = true;
+        mask = document.createElement('div');
+        mask.className = 'x-modal-mask';
+
+        const win = document.createElement('div');
+        win.className = 'x-modal-window';
+        win.onclick = (e) => e.stopPropagation();
+
+        const hRow = document.createElement('div');
+        hRow.style.display = 'flex';
+        hRow.style.justifyContent = 'space-between';
+        hRow.style.alignItems = 'center';
+
+        const title = document.createElement('span');
+        title.innerText = '⚙️ 黑白名单高级配置';
+        title.style.fontWeight = 'bold';
+        title.style.fontSize = '14px';
+        title.style.color = '#a855f7';
+        title.style.flex = '1';
+        title.style.padding = '4px 0';
+
+        const closeBtn = document.createElement('div');
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+        closeBtn.style.width = '24px';
+        closeBtn.style.height = '24px';
+        const closeLine = document.createElement('span');
+        closeLine.style.width = '12px';
+        closeLine.style.height = '2.5px';
+        closeLine.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        closeLine.style.borderRadius = '2px';
+        closeBtn.appendChild(closeLine);
+        closeBtn.onmouseover = () => closeLine.style.backgroundColor = '#a855f7';
+        closeBtn.onmouseout = () => closeLine.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+
+        hRow.appendChild(title);
+        hRow.appendChild(closeBtn);
+        win.appendChild(hRow);
+
+        enableDrag(title, win);
+
+        const bLabel = createLabelWithTooltip('💀 黑名单 (@用户ID，支持逗号或换行分隔)', '自动回关功能研发成功后，永远不会给这里面的人回关（防老赖）。');
+        bLabel.style.fontSize = '12px';
+        bLabel.style.color = '#ccc';
+        const bInput = document.createElement('textarea');
+        bInput.className = 'x-input-style';
+        bInput.style.width = '100%'; bInput.style.height = '80px'; bInput.style.borderRadius = '8px';
+        bInput.style.color = '#fff'; bInput.style.padding = '8px'; bInput.style.fontSize = '12px';
+        bInput.style.resize = 'none'; bInput.style.boxSizing = 'border-box';
+        bInput.placeholder = '例如:\n@idiot1, @idiot2\n@idiot3';
+        bInput.value = GM_getValue('x_blacklist', '');
+
+        const wLabel = createLabelWithTooltip('🛡️ 白名单 (@用户ID，支持逗号或换行分隔)', '批量清粉时，即使对方没有回关你，也绝对不会取关他们。');
+        wLabel.style.fontSize = '12px';
+        wLabel.style.color = '#ccc';
+        const wInput = document.createElement('textarea');
+        wInput.className = 'x-input-style';
+        wInput.style.width = '100%'; wInput.style.height = '80px'; wInput.style.borderRadius = '8px';
+        wInput.style.color = '#fff'; wInput.style.padding = '8px'; wInput.style.fontSize = '12px';
+        wInput.style.resize = 'none'; wInput.style.boxSizing = 'border-box';
+        wInput.placeholder = '例如:\n@vip1, @vip2\n@vip3';
+        wInput.value = GM_getValue('x_whitelist', '');
+
+        win.appendChild(bLabel);
+        win.appendChild(bInput);
+        win.appendChild(wLabel);
+        win.appendChild(wInput);
+
+        const tip = document.createElement('div');
+        tip.innerText = '💡 支持实时输入。确认无误后，点击右上角横杠保存并退出。';
+        tip.style.fontSize = '11px'; tip.style.color = '#666'; tip.style.textAlign = 'center';
+        win.appendChild(tip);
+
+        mask.appendChild(win);
+        document.body.appendChild(mask);
+
+        const destroyModal = () => {
+            GM_setValue('x_blacklist', bInput.value);
+            GM_setValue('x_whitelist', wInput.value);
+            isModalOpen = false;
+            mask.classList.remove('active');
+        };
+
+        closeBtn.onclick = destroyModal;
+
+        setTimeout(() => mask.classList.add('active'), 10);
     }
 
     function createUI() {
@@ -184,7 +360,6 @@
         miniBtn.style.color = '#fff';
         miniBtn.style.fontSize = '12px';
         miniBtn.style.fontWeight = 'bold';
-        miniBtn.style.cursor = 'pointer';
         miniBtn.style.whiteSpace = 'nowrap';
         miniBtn.style.backgroundColor = 'rgba(15, 15, 15, 0.75)';
         miniBtn.style.backdropFilter = 'blur(12px)';
@@ -192,15 +367,18 @@
         miniBtn.style.border = '1px solid rgba(29, 155, 240, 0.4)';
         miniBtn.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
         miniBtn.innerHTML = '𝕏 展开大师 ➕';
-        miniBtn.style.transition = 'transform 0.2s';
-        miniBtn.onmouseover = () => miniBtn.style.transform = 'scale(1.05)';
-        miniBtn.onmouseout = () => miniBtn.style.transform = 'scale(1)';
+        miniBtn.style.transition = 'opacity 0.2s, transform 0.2s';
+        miniBtn.onmouseover = () => { miniBtn.style.opacity = '0.95'; };
+        miniBtn.onmouseout = () => { miniBtn.style.opacity = '1'; };
 
-        // 🌟 顶部工具栏
+        // 🌟 新增：使最小化胶囊也支持拖拽
+        enableDrag(miniBtn, miniBtn);
+
         const headerRow = document.createElement('div');
         headerRow.style.display = 'flex';
         headerRow.style.justifyContent = 'space-between';
         headerRow.style.alignItems = 'center';
+        headerRow.style.userSelect = 'none';
 
         const titleSpan = document.createElement('span');
         titleSpan.innerText = '𝕏-海王管理大师';
@@ -208,17 +386,17 @@
         titleSpan.style.fontSize = '14px';
         titleSpan.style.color = '#1d9bf0';
         titleSpan.style.textShadow = '0 0 8px rgba(29, 155, 240, 0.3)';
+        titleSpan.style.flex = '1';
 
-        const hideBtn = document.createElement('div'); // 改为 div 以便更好地控制布局
+        const hideBtn = document.createElement('div');
         hideBtn.style.cursor = 'pointer';
         hideBtn.style.display = 'flex';
         hideBtn.style.alignItems = 'center';
         hideBtn.style.justifyContent = 'center';
-        hideBtn.style.width = '24px';  // 放大交互热区宽度
-        hideBtn.style.height = '24px'; // 放大交互热区高度
-        hideBtn.style.marginRight = '-4px'; // 修正热区带来的边距位移
+        hideBtn.style.width = '24px';
+        hideBtn.style.height = '24px';
+        hideBtn.style.marginRight = '-4px';
 
-        // 内部真正显示的精致横线
         const hideLine = document.createElement('span');
         hideLine.style.width = '12px';
         hideLine.style.height = '2.5px';
@@ -228,8 +406,8 @@
         hideBtn.appendChild(hideLine);
 
         hideBtn.onmouseover = () => {
-            hideLine.style.backgroundColor = '#1d9bf0'; // 悬浮变蓝
-            hideLine.style.transform = 'scaleY(1.3)';   // 精致加粗
+            hideLine.style.backgroundColor = '#1d9bf0';
+            hideLine.style.transform = 'scaleY(1.3)';
         };
         hideBtn.onmouseout = () => {
             hideLine.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
@@ -240,18 +418,50 @@
         headerRow.appendChild(hideBtn);
         container.appendChild(headerRow);
 
+        enableDrag(titleSpan, container);
+
+        // 🌟 修改：主面板最小化时，不仅同步隐藏子面板，还要将当前的 top/left 同步给胶囊
         hideBtn.onclick = () => {
             container.style.opacity = '0';
             container.style.transform = 'scale(0.9)';
+
+            const mask = document.querySelector('.x-modal-mask');
+            if (mask) {
+                mask.classList.remove('active');
+            }
+
+            // 动态同步位置到胶囊
+            miniBtn.style.top = container.style.top || (container.offsetTop + 'px');
+            miniBtn.style.left = container.style.left || (container.offsetLeft + 'px');
+            miniBtn.style.right = 'auto';
+            miniBtn.style.bottom = 'auto';
+
             setTimeout(() => {
                 container.style.display = 'none';
                 miniBtn.style.display = 'flex';
             }, 200);
         };
 
+        // 🌟 修改：胶囊被点击展开时，判断是拖拽还是纯点击。如果是点击，则将胶囊的位置同步回主面板
         miniBtn.onclick = () => {
+            if (miniBtn.getAttribute('data-dragged') === 'true') {
+                return; // 如果刚才是在拖拽，则不触发还原
+            }
+
             miniBtn.style.display = 'none';
             container.style.display = 'flex';
+
+            // 动态同步位置回主面板
+            container.style.top = miniBtn.style.top || (miniBtn.offsetTop + 'px');
+            container.style.left = miniBtn.style.left || (miniBtn.offsetLeft + 'px');
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+
+            const mask = document.querySelector('.x-modal-mask');
+            if (mask && isModalOpen) {
+                mask.classList.add('active');
+            }
+
             setTimeout(() => {
                 container.style.opacity = '1';
                 container.style.transform = 'scale(1)';
@@ -264,7 +474,6 @@
         hrTop.style.margin = '0';
         container.appendChild(hrTop);
 
-        // --- 组件 1：取关间隔上限 ---
         const delayGroup = document.createElement('div');
         delayGroup.style.display = 'flex';
         delayGroup.style.flexDirection = 'column';
@@ -295,7 +504,6 @@
         delayGroup.appendChild(delayLabelContainer);
         delayGroup.appendChild(delaySlider);
 
-        // --- 组件 2：滚屏刷新速度 ---
         const speedGroup = document.createElement('div');
         speedGroup.style.display = 'flex';
         speedGroup.style.flexDirection = 'column';
@@ -327,7 +535,6 @@
         speedGroup.appendChild(speedLabelContainer);
         speedGroup.appendChild(speedSlider);
 
-        // --- 组件 3：安全阀门输入框 ---
         const limitGroup = document.createElement('div');
         limitGroup.style.display = 'flex';
         limitGroup.style.justifyContent = 'space-between';
@@ -352,14 +559,32 @@
         };
         limitGroup.appendChild(limitInput);
 
-        // --- 组件：自动执行开关 ---
         const autoExecGroup = document.createElement('div');
         autoExecGroup.style.display = 'flex';
         autoExecGroup.style.justifyContent = 'space-between';
         autoExecGroup.style.alignItems = 'center';
 
+        const autoExecLabelContainer = document.createElement('div');
+        autoExecLabelContainer.style.display = 'flex';
+        autoExecLabelContainer.style.flexDirection = 'column';
+        autoExecLabelContainer.style.gap = '2px';
+
         const autoExecLabel = createLabelWithTooltip('⚡ 发现目标自动取关', '开启：自动点击取关。关闭：发现目标时暂停滚动并锁定目标，由您手动决定是否取关。');
-        autoExecGroup.appendChild(autoExecLabel);
+
+        const subListBtn = document.createElement('span');
+        subListBtn.innerText = '[编辑黑/白名单]';
+        subListBtn.style.fontSize = '11px';
+        subListBtn.style.color = '#a855f7';
+        subListBtn.style.cursor = 'pointer';
+        subListBtn.style.fontWeight = 'bold';
+        subListBtn.style.width = 'fit-content';
+        subListBtn.style.transition = 'color 0.2s';
+        subListBtn.onmouseover = () => subListBtn.style.color = '#b975ff';
+        subListBtn.onmouseout = () => subListBtn.style.color = '#a855f7';
+        subListBtn.onclick = createListModal;
+
+        autoExecLabelContainer.appendChild(autoExecLabel);
+        autoExecLabelContainer.appendChild(subListBtn);
 
         autoExecCheck = document.createElement('input');
         autoExecCheck.type = 'checkbox';
@@ -370,9 +595,10 @@
         autoExecCheck.onchange = (e) => {
             CONFIG.autoExecute = e.target.checked;
         };
+
+        autoExecGroup.appendChild(autoExecLabelContainer);
         autoExecGroup.appendChild(autoExecCheck);
 
-        // 选项卡
         const modeTabContainer = document.createElement('div');
         modeTabContainer.className = 'x-tab-container';
 
@@ -393,14 +619,13 @@
         hr.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
         hr.style.margin = '2px 0';
 
-        // --- 组件 4：实时日志区 ---
         const logLabel = document.createElement('div');
         logLabel.innerHTML = '<span>📋 运行日志:</span>';
         logLabel.style.fontSize = '12px';
         logLabel.style.color = '#aaa';
 
         logBox = document.createElement('div');
-        logBox.style.height = '120px';
+        logBox.style.height = '110px';
         logBox.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
         logBox.style.border = '1px solid rgba(255, 255, 255, 0.1)';
         logBox.style.borderRadius = '8px';
@@ -411,18 +636,15 @@
         logBox.style.color = '#00ff66';
         logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
 
-        // 主操作按钮
         mainActionBtn = document.createElement('button');
         mainActionBtn.innerText = '🚀 启动程序';
         styleButton(mainActionBtn, '#00ba7c');
 
-        // 人工锁定暂停时弹出的“结束并结算”按钮
         stopAndSettleBtn = document.createElement('button');
         stopAndSettleBtn.innerText = '🏁 结束并结算';
         styleButton(stopAndSettleBtn, '#ff6b00');
         stopAndSettleBtn.style.display = 'none';
 
-        // 底部纯净文本行（左版本，右纯标签功德箱）
         const footerRow = document.createElement('div');
         footerRow.style.display = 'flex';
         footerRow.style.justifyContent = 'space-between';
@@ -432,7 +654,7 @@
         footerRow.style.color = '#666';
 
         const versionSpan = document.createElement('span');
-        versionSpan.innerText = 'v5.1';
+        versionSpan.innerText = 'v6.0';
 
         const sponsorSpan = document.createElement('span');
         sponsorSpan.className = 'x-helper-tooltip';
@@ -449,7 +671,6 @@
         footerRow.appendChild(versionSpan);
         footerRow.appendChild(sponsorSpan);
 
-        // 核心整合点击逻辑
         mainActionBtn.onclick = async () => {
             if (!isRunning && !isPausedForManual) {
                 lockUI('🤖 运行中...');
@@ -614,6 +835,14 @@
                 const userHandle = matchHandle ? matchHandle[0] : null;
 
                 if (!userHandle || processedUsers.has(userHandle)) {
+                    continue;
+                }
+
+                const whitelistRaw = GM_getValue('x_whitelist', '');
+                const whitelistArr = whitelistRaw.split(/[\n,]/).map(v => v.trim()).filter(v => v.startsWith('@'));
+                if (whitelistArr.includes(userHandle)) {
+                    processedUsers.add(userHandle);
+                    addRealtimeLog(`🛡️ [白名单保护] 自动跳过重要账户: ${userHandle}`, '#a855f7');
                     continue;
                 }
 
