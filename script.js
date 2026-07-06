@@ -813,8 +813,8 @@
         logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
         container.appendChild(logBox);
 
-        mainActionBtn = document.createElement('button');mainActionBtn.innerText = '🚀 启动程序'; styleButton(mainActionBtn, '#00ba7c'); container.appendChild(mainActionBtn);
-        stopAndSettleBtn = document.createElement('button'); stopAndSettleBtn.innerText = '🏁 结束并结算'; styleButton(stopAndSettleBtn, '#ff6b00'); stopAndSettleBtn.style.display = 'none'; container.appendChild(stopAndSettleBtn);
+        mainActionBtn = document.createElement('button');mainActionBtn.innerText = '启动程序'; styleButton(mainActionBtn, '#00ba7c'); container.appendChild(mainActionBtn);
+        stopAndSettleBtn = document.createElement('button'); stopAndSettleBtn.innerText = '终止'; styleButton(stopAndSettleBtn, '#ff6b00'); stopAndSettleBtn.style.display = 'none'; container.appendChild(stopAndSettleBtn);
 
         mainActionBtn.onclick = async () => {
             if (!isFollowingPage()) {
@@ -1010,12 +1010,12 @@
     function finishProcess() {
         if (isPausedForManual) {
             limitInput.disabled = false; autoExecCheck.disabled = false;
-            mainActionBtn.innerText = '▶️ 继续清理'; mainActionBtn.style.backgroundColor = '#1d9bf0'; stopAndSettleBtn.style.display = 'block';
+            mainActionBtn.innerText = '继续'; mainActionBtn.style.backgroundColor = '#1d9bf0'; stopAndSettleBtn.style.display = 'flex';
             return;
         }
         isRunning = false; isPausedForManual = false;
         limitInput.disabled = false; autoExecCheck.disabled = false;
-        mainActionBtn.innerText = '🚀 启动程序'; mainActionBtn.style.backgroundColor = '#00ba7c'; stopAndSettleBtn.style.display = 'none';
+        mainActionBtn.innerText = '启动'; mainActionBtn.style.backgroundColor = '#00ba7c'; stopAndSettleBtn.style.display = 'none';
 
         addRealtimeLog(`=================================`, '#ffff00');
         addRealtimeLog(`🎉 运行结算：清理工作已安全结束。`, '#ffff00');
