@@ -1024,7 +1024,6 @@
         mainActionBtn.innerText = '启动'; mainActionBtn.style.backgroundColor = '#00ba7c'; stopAndSettleBtn.style.display = 'none';
 
         addRealtimeLog(`=================================`, '#ffff00');
-        addRealtimeLog(`运行统计：`, '#ffff00');
         addRealtimeLog(`本次累计处理: ${unfollowedList.length} 人。`, '#ffff00');
         addRealtimeLog(`=================================`, '#ffff00');
 
