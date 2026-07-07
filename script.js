@@ -969,7 +969,7 @@
 
                         if (!CONFIG.autoExecute) {
                             cell.classList.add('x-highlight-user');
-                            addRealtimeLog(`🔍 锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
+                            addRealtimeLog(`锁定非回关: ${userHandle}，等待您人工处理`, '#ffff00');
                             lastLockedHandle = userHandle; lastLockedCell = cell;
                             isRunning = false; isPausedForManual = true;
                             throw new Error("MANUAL_PAUSE");
