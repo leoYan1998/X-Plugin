@@ -919,7 +919,7 @@
 
         if (hasUnfollowed) {
             unfollowedList.push(lastLockedHandle);
-            addRealtimeLog(`[${unfollowedList.length}] 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
+            addRealtimeLog(`[${unfollowedList.length}] 手动介入: 已确认 ${lastLockedHandle}`, '#00ba7c');
             if (appendToListArray('x_blacklist', lastLockedHandle)) {
                 addRealtimeLog(`[黑名单] 账户 ${lastLockedHandle} 已自动同步至黑名单`, '#ef4444');
             }
@@ -990,7 +990,7 @@
                         if (confirmBtn) {
                             confirmBtn.click();
                             unfollowedList.push(userHandle);
-                            addRealtimeLog(`[${unfollowedList.length}] 已自动取关 ${userHandle}`);
+                            addRealtimeLog(`[${unfollowedList.length}] 已自动处理 ${userHandle}`);
 
                             if (appendToListArray('x_blacklist', userHandle)) {
                                 addRealtimeLog(`[黑名单] 账户 ${userHandle} 已自动同步至黑名单`, '#ef4444');
@@ -1025,7 +1025,7 @@
 
         addRealtimeLog(`=================================`, '#ffff00');
         addRealtimeLog(`运行统计：`, '#ffff00');
-        addRealtimeLog(`本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
+        addRealtimeLog(`本次累计处理: ${unfollowedList.length} 人。`, '#ffff00');
         addRealtimeLog(`=================================`, '#ffff00');
 
         unfollowedList = []; processedUsers.clear();
