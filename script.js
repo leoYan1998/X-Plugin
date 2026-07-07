@@ -810,7 +810,7 @@
         const hr = document.createElement('hr'); hr.style.border = '0'; hr.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)'; hr.style.margin = '2px 0'; container.appendChild(hr);
 
         logBox = document.createElement('div'); logBox.style.height = '110px'; logBox.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; logBox.style.borderRadius = '8px'; logBox.style.padding = '8px'; logBox.style.overflowY = 'auto'; logBox.style.fontSize = '11px'; logBox.style.color = '#00ff66';
-        logBox.innerHTML = '<div style="color:#888;">[就绪] 海王雷达已部署，等待启动...</div>';
+        logBox.innerHTML = '<div style="color:#888;">[就绪] 等待启动...</div>';
         container.appendChild(logBox);
 
         mainActionBtn = document.createElement('button');mainActionBtn.innerText = '启动程序'; styleButton(mainActionBtn, '#00ba7c'); container.appendChild(mainActionBtn);
@@ -818,17 +818,17 @@
 
         mainActionBtn.onclick = async () => {
             if (!isFollowingPage()) {
-                addRealtimeLog(`[提示] 请先切换至你的指定 [正在关注] 页面再启动清理逻辑`, '#ffaa00');
+                addRealtimeLog(`[提示] 请先切换至你的指定 [正在关注] 页面再启动`, '#ffaa00');
                 return;
             }
             if (!isRunning && !isPausedForManual) {
-                lockUI('🤖 运行中...');
+                lockUI('运行中...');
                 try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
                 finishProcess();
             } else if (isRunning && !isPausedForManual) {
-                isRunning = false; mainActionBtn.innerText = '⏳ 正在安全收尾...';
+                isRunning = false; mainActionBtn.innerText = '正在安全收尾...';
             } else if (isPausedForManual) {
-                lockUI('🤖 继续运行中...');
+                lockUI('继续运行中...');
                 try { await startUnfollowProcess(); } catch (e) { if (e.message !== "USER_INTERRUPT" && e.message !== "MANUAL_PAUSE") console.error(e); }
                 finishProcess();
             }
@@ -896,9 +896,9 @@
         if (isPausedForManual) checkAndRecordManualAction();
         isRunning = true; isPausedForManual = false;
         if (unfollowedList.length === 0) { logBox.innerHTML = `<div style="color:#e1a100;">[系统] 开始扫描非回关账户...</div>`; }
-        else { addRealtimeLog(`[系统] 接收指令，继续向下清理...`, '#e1a100'); }
+        else { addRealtimeLog(`[系统] 接收指令，继续...`, '#e1a100'); }
         limitInput.disabled = true; autoExecCheck.disabled = true;
-        mainActionBtn.innerText = text ? text : '🛑 停止清理'; mainActionBtn.style.backgroundColor = '#e0245e'; stopAndSettleBtn.style.display = 'none';
+        mainActionBtn.innerText = text ? text : '停止处理'; mainActionBtn.style.backgroundColor = '#e0245e'; stopAndSettleBtn.style.display = 'none';
     }
 
     function checkAndRecordManualAction() {
@@ -913,11 +913,11 @@
 
         if (hasUnfollowed) {
             unfollowedList.push(lastLockedHandle);
-            addRealtimeLog(`[${unfollowedList.length}] 👤 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
+            addRealtimeLog(`[${unfollowedList.length}] 手动介入: 已确认取关 ${lastLockedHandle}`, '#00ba7c');
             if (appendToListArray('x_blacklist', lastLockedHandle)) {
                 addRealtimeLog(`[黑名单] 账户 ${lastLockedHandle} 已自动同步至黑名单`, '#ef4444');
             }
-        } else { addRealtimeLog(`[系统] 👤 手动介入: 保留并跳过账户 ${lastLockedHandle}`, '#aaa'); }
+        } else { addRealtimeLog(`[系统] 手动介入: 保留并跳过账户 ${lastLockedHandle}`, '#aaa'); }
 
         processedUsers.add(lastLockedHandle);
         lastLockedHandle = null; lastLockedCell = null;
@@ -926,7 +926,7 @@
     function checkInterrupt() {
         if (!isRunning) throw new Error("USER_INTERRUPT");
         if (unfollowedList.length >= CONFIG.maxUnfollowLimit) {
-            addRealtimeLog(`🚨 [熔断] 已触及设定的单次安全上限阀门！`, '#ff3333');
+            addRealtimeLog(`[熔断] 已触及设定的单次安全上限阀门！`, '#ff3333');
             isRunning = false; throw new Error("USER_INTERRUPT");
         }
     }
@@ -955,7 +955,7 @@
                 const currentWhitelist = getListArray('x_whitelist');
                 if (currentWhitelist.includes(userHandle)) {
                     processedUsers.add(userHandle);
-                    addRealtimeLog(`🛡️ [白名单跳过] 自动跳过重要账户: ${userHandle}`, '#a855f7');
+                    addRealtimeLog(`[白名单跳过] 自动跳过重要账户: ${userHandle}`, '#a855f7');
                     continue;
                 }
 
@@ -984,7 +984,7 @@
                         if (confirmBtn) {
                             confirmBtn.click();
                             unfollowedList.push(userHandle);
-                            addRealtimeLog(`[${unfollowedList.length}] ✅ 已自动取关 ${userHandle}`);
+                            addRealtimeLog(`[${unfollowedList.length}] 已自动取关 ${userHandle}`);
 
                             if (appendToListArray('x_blacklist', userHandle)) {
                                 addRealtimeLog(`[黑名单] 账户 ${userHandle} 已自动同步至黑名单`, '#ef4444');
@@ -1018,8 +1018,8 @@
         mainActionBtn.innerText = '启动'; mainActionBtn.style.backgroundColor = '#00ba7c'; stopAndSettleBtn.style.display = 'none';
 
         addRealtimeLog(`=================================`, '#ffff00');
-        addRealtimeLog(`🎉 运行结算：清理工作已安全结束。`, '#ffff00');
-        addRealtimeLog(`📊 本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
+        addRealtimeLog(`运行结算：清理工作已安全结束。`, '#ffff00');
+        addRealtimeLog(`本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
         addRealtimeLog(`=================================`, '#ffff00');
 
         unfollowedList = []; processedUsers.clear();
