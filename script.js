@@ -2,7 +2,7 @@
 // @name         X批量取消非回关 (定制版)
 // @namespace    http://tampermonkey.net/
 // @version      8.7
-// @author       Leo66 & Gemini
+// @author       Leo66
 // @match        https://x.com/*/following
 // @match        https://twitter.com/*/following
 // @match        https://x.com/*/followers
