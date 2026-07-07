@@ -40,9 +40,15 @@
     let isModalOpen = false;
     let activeRefreshFunctions = {};
 
-    // 🎯 严格判定：只有当前 URL 为指定的 LeoYan98 正在关注列表页时才返回 true
+    // 🎯 通用化：检测当前是否在任何用户的 following 页面
     function isFollowingPage() {
-        return window.location.origin === 'https://x.com' && window.location.pathname.toLowerCase() === '/leoyan98/following';
+        const path = window.location.pathname.toLowerCase();
+        const pathParts = path.split('/').filter(p => p.length > 0);
+        // 匹配 /username/following 格式，排除特殊路径
+        return pathParts.length >= 2 &&
+               pathParts[pathParts.length - 1] === 'following' &&
+               pathParts[pathParts.length - 2] !== 'i' &&
+               pathParts[pathParts.length - 2] !== 'settings';
     }
 
     function injectStyles() {
@@ -818,7 +824,7 @@
 
         mainActionBtn.onclick = async () => {
             if (!isFollowingPage()) {
-                addRealtimeLog(`[提示] 请先切换至你的指定 [正在关注] 页面再启动`, '#ffaa00');
+                addRealtimeLog(`[提示] 请先切换至 [正在关注] 页面再启动`, '#ffaa00');
                 return;
             }
             if (!isRunning && !isPausedForManual) {
@@ -837,7 +843,7 @@
         stopAndSettleBtn.onclick = () => {
             if (isPausedForManual) {
                 checkAndRecordManualAction(); isPausedForManual = false; isRunning = false;
-                addRealtimeLog(`[系统] 用户选择终止，正在结算...`, '#ff3333'); finishProcess();
+                addRealtimeLog(`[系统] 用户选择终止，正在统计...`, '#ff3333'); finishProcess();
             }
         };
 
@@ -1018,7 +1024,7 @@
         mainActionBtn.innerText = '启动'; mainActionBtn.style.backgroundColor = '#00ba7c'; stopAndSettleBtn.style.display = 'none';
 
         addRealtimeLog(`=================================`, '#ffff00');
-        addRealtimeLog(`运行结算：清理工作已安全结束。`, '#ffff00');
+        addRealtimeLog(`运行统计：`, '#ffff00');
         addRealtimeLog(`本次累计成功取关: ${unfollowedList.length} 人。`, '#ffff00');
         addRealtimeLog(`=================================`, '#ffff00');
 
